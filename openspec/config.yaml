@@ -1,0 +1,27 @@
+schema: spec-driven
+
+# Project context (optional)
+# Constraints that guide OpenSpec artifacts and workflows.
+context: |
+  Winternight is a retro-3D fantasy action game built on a custom, fully
+  deformable voxel engine.
+  Language: C11 only for engine and game code. Platform layer: SDL3.
+  Graphics: OpenGL 3.3 core on desktop, OpenGL ES 3.0 / WebGL2 on web; shaders
+  must be written against the common subset so one source serves all targets.
+  Targets that every design and task must consider: Windows, Linux,
+  Web (Emscripten, desktop + mobile browsers with touch controls) and WebXR.
+  macOS is not a target.
+  Quality gates: unit tests with >= 95% line coverage of the platform-independent
+  core, plus deterministic automated game tests (scripted input replay, state
+  assertions, golden-image comparison) that run headless in CI.
+  The story is a working draft; specs must not hard-code narrative details
+  beyond what a test needs.
+
+rules:
+  proposal:
+    - State what is out of scope.
+  design:
+    - For every engine decision, state its impact on the web/mobile and WebXR targets.
+  tasks:
+    - Every task that adds core code must also add the unit tests that keep coverage >= 95%.
+    - Every task that adds player-visible behaviour must add or extend an automated game test.

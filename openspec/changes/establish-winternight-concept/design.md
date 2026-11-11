@@ -1,0 +1,241 @@
+# Design
+
+## Context
+
+The repository starts empty. Motivation and scope are in `proposal.md`, and the
+required behaviour is in `specs/`. The mood and art rules are in
+`docs/concept/visual-style.md`. These constraints shape the design:
+
+- **Language and libraries:** C11, SDL3 and OpenGL. The web build must use WebGL2
+  (≈ GLES 3.0), so the desktop renderer cannot use features beyond that subset
+  (no compute shaders, no geometry shaders, no SSBOs).
+- **WebXR:** SDL3 does not provide WebXR. It has to be reached through JavaScript
+  from the Emscripten build.
+- **Test gates:** 95% coverage and deterministic game tests mean that game logic
+  must be separate from SDL, GL and browser APIs, and must be deterministic.
+
+## Goals / Non-Goals
+
+**Goals:**
+- One architecture that serves desktop, web, mobile web and WebXR without forks.
+- A voxel data model that supports deformation, snow fill, blood stains and light
+  in one place, so the systems work together (e.g. blood on snow, fire melting snow).
+- A core that can be unit-tested and replayed deterministically.
+- Render the benchmark shot (`visual-style.md`) within the performance budgets.
+
+**Non-Goals:**
+- Smooth or marching-cubes voxel surfaces. The blocky look is intended.
+- Physically accurate fluids or snow mechanics. Cellular rules are enough.
+- A general-purpose engine or an editor in this milestone (scenes are text files).
+- Native VR (OpenXR) and macOS.
+
+## Decisions
+
+### D1. Three-layer architecture
+```
+game/        Game rules, scenes, AI, combat         (pure C, no platform calls)
+engine/      Voxel world, deformation, snow, blood, (pure C, no platform calls)
+             lighting, meshing, physics, input mapping,
+             replay, render *commands*
+platform/    SDL3 window/input/time, OpenGL backend,  (thin glue, no game logic)
+             Emscripten main loop, JS bridges (touch, WebXR)
+```
+`engine` and `game` form the **core** library (`wn_core`), which never includes
+SDL or GL headers. The renderer is split: the core builds plain data (mesh
+buffers, a draw list, uniforms, render settings) and `platform/gl` turns it into
+GL calls. This keeps meshing, culling, palette and lighting logic unit-testable.
+*Alternative:* call GL directly from engine code. Rejected because it makes 95%
+coverage unreachable without a GPU.
+*Web/XR impact:* only `platform/` has `#ifdef __EMSCRIPTEN__` code.
+
+### D2. 32-bit voxel cell and 32³ chunks
+```
+bits  0–7   material id   (256 materials, 0 = air)
+bits  8–11  fill level    (0–15; 0 = full for non-granular materials)
+bits 12–15  damage        (0–15)
+bits 16–17  stain type    (none, blood, ichor, soot)
+bits 18–23  stain amount  (0–63)
+bits 24–27  sky light     (0–15)
+bits 28–31  block light   (0–15)  + colour from nearest emitter table
+```
+A chunk with one value for all voxels is stored as that single value (spec
+"Memory-efficient chunk storage"). A full chunk takes 128 KiB. A 12-chunk view
+radius with a vertical span of 4 chunks means about 2,300 chunks, but most are
+uniform air or solid, so the expected live memory is under 100 MiB. That is
+acceptable for mobile browsers.
+*Alternatives:* separate layers for stain and light (more cache misses and more
+code), or 16-bit cells (no room for stain, which is central to the look).
+*Web impact:* there is no `mmap`; chunks come from a pooled allocator to avoid
+fragmenting the WASM heap.
+
+### D3. Meshing: greedy quads with baked AO, on worker threads
+- Faces are merged when material colour index, AO, light and stain match. Since
+  per-voxel hash variation (retro-rendering spec) changes the colour per voxel, merging works on the
+  **colour index after hashing**. That still gives large merges on uniform snow
+  thanks to its narrow ramp.
+- Fill-level voxels (snow, liquid) are meshed with a lowered top face and are
+  never merged with full voxels on their sides.
+- Vertex format: 8 bytes (position 3×u8 inside the chunk + u8 fill/AO, normal +
+  palette index + light packed in the remaining 4 bytes).
+- Work is spread across a job system (SDL threads on desktop; Emscripten pthreads
+  when the page is cross-origin isolated, otherwise a per-frame time slice on the
+  main thread).
+*Web impact:* cross-origin isolation (COOP/COEP headers) is needed for threads.
+The fallback keeps simple hosting working.
+
+### D4. Rendering pipeline (GL 3.3 core / GLES 3.0 common subset)
+1. Shadow pass: the moon's orthographic shadow map (1024², a single cascade
+   aligned to the view and snapped to texels to stop shimmering).
+2. Opaque voxel chunks → low-res colour and depth target (480×270 default).
+3. Dynamic voxel models (characters, debris) drawn as instanced voxel meshes.
+4. Sky: full-screen pass for the gradient, hashed starfield, moon disc and aurora.
+5. Particles (snow, blood, dust) as point-sprite pixels.
+6. Post-processing at low resolution: emissive glow (a 2-pass box blur at ¼ res),
+   fog, then palette mapping using a 3D LUT (32³ → 64-colour palette) plus a 4×4 Bayer
+   dither.
+7. Upscale blit to the window with integer scale and nearest filtering.
+One shader source per stage, prefixed with `#version 330 core` or
+`#version 300 es` + precision lines when it is loaded.
+*Alternative:* a separate renderer per platform. Rejected because it doubles the work
+and breaks cross-platform golden images.
+*XR impact:* steps 1–6 run once per eye at a higher internal resolution (D9).
+
+### D5. Light: flood-fill per voxel combined with a moon shadow map
+Sky and block light use the classic BFS flood fill with incremental add and remove
+queues when voxels change. Moonlight uses the shadow map, because its long, crisp
+shadows are the main feature of the night look. Fire colour comes from a small table
+of emitter colours selected by the nearest emitter, which is enough for "warm vs.
+necromantic". *Alternative:* per-pixel shadowed point lights (too costly on mobile).
+
+### D6. Deformation, connectivity and debris
+- Edits go through `wn_edit_*` functions that mark chunks dirty, queue light updates
+  and record the change in a per-chunk **modification log**, so player changes
+  survive streaming (spec "Player changes survive unloading").
+- After an edit, a bounded flood fill starts from the edited area's solid neighbours.
+  If it hits an anchor or exceeds N voxels (default 64k) before finishing, the area
+  counts as connected. Smaller islands without an anchor become debris. *Trade-off:*
+  very large overhangs never fall. That is acceptable, and it bounds the cost.
+- Debris is a small voxel grid with a rigid body (OBB vs. voxel-grid collision,
+  impulse solver, sleeping). Our own small implementation, about 1k lines, instead of
+  an external physics engine, so it stays deterministic and testable.
+
+### D7. Determinism
+- The simulation step only uses fixed-point or carefully ordered float maths with
+  `-ffp-contract=off`, no `-ffast-math`, and the same compiler-independent math
+  functions (our own `wn_sinf`, `wn_sqrtf` wrappers, using IEEE `sqrt` which is
+  exact). Order-dependent loops (light queues, debris lists) iterate in a stable
+  order.
+- One seeded PCG32 stream per subsystem. No `rand()`, no time-based seeds.
+- Per-step state checksum (xxHash32 over the world modification logs, entities and
+  RNG states), used by replays and cross-platform tests.
+- Rendering may vary between targets. The simulation may not.
+
+### D8. Snow and blood as cellular automata on the voxel grid
+- Snow accumulation: per simulation tick, a budgeted set of columns (round-robin)
+  receives fill if the column's highest solid voxel has sky light 15. Avalanches use
+  a sand-pile rule on fill levels with a limited number of cells per tick.
+  Footprints lower fill by a footprint stamp.
+- Blood: particles live in a fixed pool. When they collide they write stain bits.
+  On snow they add a 6-neighbour spread at ½ intensity. Pools are liquid voxels
+  ("blood") with fill levels and a flow rule that freezes into "frozen blood" after
+  T seconds when the temperature is below zero. Stain colour depends on age, which is
+  kept at low resolution in a separate per-chunk age map (only allocated when stains
+  exist).
+- Gore level is read at the emission point, so systems never create content
+  that is turned off.
+
+### D9. WebXR through an Emscripten JS library
+`platform/web/wn_webxr.js` (an `--js-library`) handles `navigator.xr`:
+session request, reference space, `XRWebGLLayer` on the same WebGL2 context SDL
+created, and per-frame `getViewerPose`. Each XR frame calls an exported C
+function `wn_xr_frame(views, count, framebuffer)`. During an XR session the normal
+`emscripten_set_main_loop` is paused, and `XRSession.requestAnimationFrame` drives
+the loop. Controller poses and buttons are put into the same action system
+(spec "Action mapping"). Internal resolution in XR: 50% of the recommended eye size,
+nearest upscale, palette dithering optional (default on, with a less noticeable
+blue-noise pattern so it doesn't swim between the eyes).
+*Alternative:* WebXR via a third-party framework (three.js etc.). Rejected because
+of the C-only constraint and because it would mean a second renderer.
+
+### D10. Input and touch
+SDL3 already delivers touch (`SDL_EVENT_FINGER_*`), gamepads and keyboard/mouse
+on all targets. The core gets a per-step `wn_input_frame` of action values. The
+touch UI (stick, buttons) is drawn by the engine's own 2D overlay so it appears in
+the golden images and works the same in all browsers. "Is this a touch device?"
+comes from `matchMedia('(pointer: coarse)')` through a tiny JS helper, plus the
+first finger event.
+
+### D11. Build and dependencies
+- **CMake ≥ 3.25** with presets: `linux-debug`, `linux-release`, `linux-coverage`,
+  `linux-asan`, `windows-msvc`, `web-release`, `web-debug`.
+- SDL3 via `FetchContent` (pinned tag) on desktop, and the Emscripten SDL3 port
+  (`--use-port=sdl3`) on the web.
+- Vendored single-file libraries: Unity (tests), cglm (math, header-only),
+  xxHash, stb_image_write (golden-image PNGs, tests only).
+- Output: `winternight` / `winternight.exe`, and `web/` with `index.html`,
+  `.js`, `.wasm`, `.data`.
+
+### D12. Test strategy
+| Layer | Tool | Gate |
+|-------|------|------|
+| Unit (core) | Unity + CTest, built with `--coverage`, reported by gcovr | ≥ 95% lines on `engine/` + `game/`. Branch coverage reported, aim ≥ 85% |
+| Sanitizers | ASan + UBSan on unit tests and game tests (Linux) | zero findings |
+| Game tests (native) | `winternight --test <script>` runs with the SDL offscreen video driver and Mesa llvmpipe (EGL surfaceless) | all pass, with golden images within tolerance |
+| Game tests (web) | Playwright (Chromium): page loads, replay checksum, touch emulation, WebXR via IWER | all pass |
+| Determinism | Same replay on Linux, Windows and web, then compare checksums | identical |
+| Performance | Benchmark fly-through, record frame times (not gated in CI; tracked) | report |
+
+Game test scripts are plain text:
+```
+scene    prologue
+seed     1234
+replay   tests/game/replays/prologue_walk.wnrec
+at 600   expect player.pos.z > 40
+at 600   capture benchmark_road   tolerance 3 maxdiff 0.5%
+at 3600  expect event scene_complete
+```
+Golden images are stored at internal resolution (480×270 PNG, about 50 KB each),
+so the repository stays small and llvmpipe output stays stable.
+
+### D13. Repository layout
+```
+CMakeLists.txt  CMakePresets.json
+engine/   include/wn/*.h  src/*.c
+game/     src/*.c  data/scenes/*.scene  data/materials.txt  data/palette.txt
+platform/ sdl/  gl/  web/ (shell.html, wn_webxr.js, wn_touch.js)
+tests/    unit/  game/ (scripts, replays, golden/)  web/ (Playwright)
+third_party/  docs/  openspec/
+.github/workflows/ci.yml
+```
+
+## Risks / Trade-offs
+
+- [llvmpipe images differ between Mesa versions] → Pin the CI image, use tolerances,
+  and keep golden images low-res and free of texture filtering.
+- [Floating-point drift across compilers and WASM breaks replay determinism] → Keep
+  the simulation maths simple, use no transcendental libm calls in the simulation
+  path, and run the cross-platform checksum test on every commit to catch drift early.
+- [95% coverage pushes people toward trivial tests] → Specs give the scenarios that
+  tests must cover. Code review checks assertion quality, not just coverage numbers.
+- [WebXR performance on standalone headsets] → Lower internal resolution, smaller view
+  radius in XR, and fixed foveation where available. Budget enforced by the benchmark.
+- [No threads without COOP/COEP] → Main-thread time-sliced meshing fallback.
+  Document the hosting headers.
+- [Mobile memory limits (iOS Safari)] → Uniform-chunk compaction, a smaller view
+  radius on mobile, and a WASM heap cap that is tested in the browser suite.
+- [Large destruction (dragon through the roof) overloads remeshing] → Remesh budget
+  with priorities, a debris cap, and turning small debris into particles.
+- [Gore can block distribution] → Gore levels from day one (spec "Gore level setting").
+
+## Migration Plan
+
+Not applicable (greenfield project).
+
+## Open Questions
+
+- Should the warrior be chained in the dungeon or pinned under rubble in Act II? This
+  doesn't affect this milestone.
+- Is a separate higher-detail voxel scale needed for close-up characters (e.g. 5 cm)?
+  Decide after the Prologue slice shows how 10 cm characters read on screen.
+- Which reference devices define the performance budgets (proposal: Ryzen 5 / GTX 1060
+  class desktop, Pixel 7 / iPhone 13 class phone, Quest 3 browser)?
