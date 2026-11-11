@@ -36,7 +36,7 @@ core lines) and game tests apply from group 1 onward.
 - [ ] 4.5 Implement the headless game-test runner (`--test <script>`, SDL offscreen + llvmpipe, capture/compare/diff PNG); verify a first golden image test passes in CI
 - [ ] 4.6 Implement the meshing job system with a main-thread time-slice fallback, with unit tests for budget and priority ordering
 - [ ] 4.7 Implement quality presets (Mobile, Standard, High), phone detection for the default preset and automatic quality scaling (spec platform-targets), with unit tests for the scaling state machine and golden images taken on the Mobile preset
-- [ ] 4.8 Add a frame-time and draw-call overlay plus a benchmark fly-through mode; verify it reports 95th/99th-percentile frame times and per-frame draw calls/triangles against the D14 budget
+- [ ] 4.8 Add a frame-time and draw-call overlay plus a benchmark fly-through mode; verify it reports 95th/99th-percentile frame times and per-frame draw calls/triangles against the D14 budget, and add a CI job that runs it in Chromium with the Lighthouse standard mobile throttling profile and fails over budget
 
 ## 5. Night lighting
 
@@ -84,7 +84,7 @@ core lines) and game tests apply from group 1 onward.
 ## 11. Integration checks
 
 - [ ] 11.1 Run the Prologue replay on Linux, Windows and web in CI and verify identical checksums
-- [ ] 11.2 Fix the reference phone models (D14), run the benchmark fly-through on them, the desktop and the headset, and verify the average phone meets 95th-percentile ≤ 16.7 ms and 99th-percentile ≤ 33 ms; record results in `docs/performance.md`
+- [ ] 11.2 Run the benchmark fly-through on the D14 reference devices (Galaxy A54, iPhone 13, RTX 3060 desktop, Iris Xe laptop, Quest 3) and verify both phones meet 95th-percentile ≤ 16.7 ms and 99th-percentile ≤ 33 ms; record results in `docs/performance.md`
 - [ ] 11.3 Verify the coverage report shows ≥ 95% line coverage for the core and all game tests pass on every target
 
 ## Workflow follow-up

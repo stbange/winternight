@@ -54,11 +54,14 @@ the visual benchmark for the engine.
 - The candles gutter, the fire turns pale green and frost creeps over the windows. Morvaine enters.
 - The dead in the crypt below rise. The guests are slaughtered (blood on snow-white tablecloths).
 - The Ossuary Wyrm breaks through the roof, an engine showcase of large-scale voxel destruction, and carries the mage away.
-- The warrior is struck down.
+- The warrior is buried when the hall's roof and gallery collapse under the Wyrm.
 
-### Act II — *Bound*
-- The warrior wakes chained in the castle dungeon (or pinned under rubble; to be decided).
-- He frees himself by breaking the chain anchor out of a crumbling wall, which teaches deformation-based puzzles.
+### Act II — *Buried*
+- The warrior wakes **pinned under the rubble** of the collapsed great hall, in the dark,
+  with snow drifting in through the broken roof and the fires burning low.
+- He frees himself by digging, levering and breaking the stone and timber that hold him.
+  The rubble is real voxel debris from the Act I collapse, so this teaches the
+  deformation-based puzzles: what you remove can make the rest shift or fall.
 - He fights his way out through the ruined, burning and freezing castle.
 
 ### Act III — *The Frozen Pursuit*

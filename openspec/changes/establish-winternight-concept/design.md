@@ -214,9 +214,21 @@ third_party/  docs/  openspec/
 ### D14. Mobile-first performance budget
 The game must run smoothly on an **average phone**, so the phone, not the desktop,
 sets the budget. Every feature is designed to fit it first.
-- **Reference phone:** a mid-range Android phone (Galaxy A5x / Pixel "a" class,
-  about 2–3 years old) in Chrome, plus an iPhone of similar age in Safari. The exact
-  models are fixed when the benchmark is set up (task 11.2).
+- **Reference devices** (widely used hardware rather than enthusiast devices):
+
+  | Target | Reference device | Browser / OS | Why |
+  |--------|------------------|--------------|-----|
+  | Android phone | **Samsung Galaxy A54** (Exynos 1380, Mali-G68) | Chrome | Samsung's best-selling mid-range line; a typical "average phone" |
+  | iPhone | **iPhone 13** (A15) | Safari | Widely used older iPhone; Safari is the strictest WebGL2/memory target |
+  | Desktop | **NVIDIA GeForce RTX 3060 class GPU, 6-core CPU, 16 GB RAM, 1080p** | Windows 11 + Chrome, Linux | Top of the Steam Hardware Survey for years; the typical gaming PC |
+  | Low-end desktop | **Intel Iris Xe integrated graphics** laptop | Windows 11 + Chrome | Common office/student laptop; must reach the Standard preset at 60 fps |
+  | XR headset | **Meta Quest 3** | Meta Quest Browser | The most widely used standalone headset; 72 Hz minimum, 90 Hz target |
+
+- **CI proxy for phones:** real devices can't run on every commit, so CI also runs the
+  benchmark in Chromium with the **Lighthouse standard mobile profile** (4× CPU slowdown,
+  412×823 viewport, Moto G Power emulation) and fails if the Mobile preset's CPU frame
+  time goes over budget. The real reference devices are measured before each milestone
+  is accepted (task 11.2).
 - **Target:** 60 fps (95th-percentile frame ≤ 16.7 ms), never over 33 ms
   (99th percentile). Smoothness beats detail.
 - **Mobile preset budget per frame:** ≤ 150 draw calls, ≤ 250k triangles,
@@ -266,9 +278,5 @@ Not applicable (greenfield project).
 
 ## Open Questions
 
-- Should the warrior be chained in the dungeon or pinned under rubble in Act II? This
-  doesn't affect this milestone.
 - Voxel size (world and characters): decided with the user after the first playable
-  version (D15, task 9.6). The engine keeps it configurable until then.
-- Exact reference phone models (D14 fixes the class: an average mid-range phone),
-  plus the desktop (proposal: GTX 1060 class) and headset (proposal: Quest 3 browser).
+  version (D15, task 9.5). The engine keeps it configurable until then.
