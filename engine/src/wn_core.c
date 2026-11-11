@@ -157,6 +157,16 @@ void wn_parser_fail(wn_parser *p, const char *msg)
     snprintf(p->error, sizeof p->error, "line %d: %s", p->line_no, msg);
 }
 
+/* "#rrggbb" followed by whitespace or end of line. */
+static bool is_color_token(const char *s)
+{
+    for (int i = 1; i <= 6; i++) {
+        char c = s[i];
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false;
+    }
+    return s[7] == '\0' || s[7] == ' ' || s[7] == '\t' || s[7] == '\r';
+}
+
 static bool split_fields(wn_parser *p)
 {
     char *s = p->line;
@@ -166,7 +176,8 @@ static bool split_fields(wn_parser *p)
         /* '#' starts a comment at the start of a line or when followed by
          * whitespace; otherwise it is part of a value such as "#rrggbb". */
         if (!*s) break;
-        if (*s == '#' && (p->nfields == 0 || s[1] == '\0' || s[1] == ' ' || s[1] == '\t' || s[1] == '\r')) break;
+        if (*s == '#' && !is_color_token(s) && (p->nfields == 0 || s[1] == '\0' || s[1] == ' ' || s[1] == '\t' || s[1] == '\r'))
+            break;
         if (p->nfields == WN_PARSE_MAX_FIELDS) {
             wn_parser_fail(p, "too many fields");
             return false;

@@ -1,0 +1,22 @@
+# Winternight 64-colour master palette (docs/concept/visual-style.md).
+# Night sky / fog
+#000000 #05070f #0b1026 #101830 #16204a #1e2a5c #283670 #34467e
+# Moonlit snow, light to shadow
+#ffffff #e4ecfa #c9d6f2 #b8c6e8 #9fb0d8 #8494c4 #6b7cab #536294
+#3d4a75 #2c375c
+# Pine / forest
+#0e1f1a #173328 #24493a #2f5c49 #0a1410
+# Stone / slate / castle
+#1c1e2a #2a2a35 #34343f #454555 #5a5a6a #6a6a7a #8a8e9a #a8acb8
+# Earth / wood / leather / fur
+#1a1410 #241e1a #2e2622 #3a2618 #4a3020 #5a4a3a #6e5c48 #8a7258
+# Firelight
+#ffe2a0 #ffc070 #ffb050 #ff9a3a #ff6a1a #d04a14 #a83210 #6a2010
+# Blood
+#4a080a #5a0a0c #8c1016 #c21e22
+# Bone / skin
+#d8cfb4 #a99c7a #6e6249 #c8a088 #b48c74
+# Necromancy / ice
+#2affb0 #7dffc0 #1a5a50 #8fb8dc #a8d0ee
+# Gold / cloth
+#c8a040 #6a1a1a #3c3c44
