@@ -1,0 +1,27 @@
+# Winternight material table (spec voxel-world: Material table).
+# material <name> <kind> <hardness> <density> <emit 0-15> <flags: f=flammable a=anchor> <colour ramp...>
+# Colours follow docs/concept/visual-style.md.
+material bedrock      solid    1000 3.0 0  a  #1a1a22
+material earth        solid    6    1.6 0  -  #2e2622 #3a2e28 #241e1a
+material stone        solid    12   2.5 0  -  #454555 #3a3a48 #6a6a7a
+material snow         granular 1    0.3 0  -  #c9d6f2 #b8c6e8 #9fb0d8
+material ice          solid    8    0.9 0  -  #8fb8dc #a8d0ee #6b8cb0
+material water        liquid   0    1.0 0  -  #1a2c4a
+material blood        liquid   0    1.0 0  -  #8c1016 #7a0e14
+material frozen-blood solid    2    1.0 0  -  #5a0a0c #4a080a
+material pine-wood    solid    4    0.6 0  f  #3a2618 #2e1e12 #4a3020
+material pine-needles solid    1.5  0.2 0  f  #173328 #0e1f1a #24493a
+material castle-stone solid    14   2.6 0  a  #2a2a35 #34343f #454555
+material window-glow  solid    6    1.0 14 -  #ffb050 #ffc070 #ff9a3a
+material fire         gas      0    0.0 15 -  #ff6a1a #ffb050
+material slate        solid    10   2.4 0  -  #1c1e2a #24273a #2a2e44
+material timber       solid    5    0.7 0  f  #4a3020 #3a2618
+material iron         solid    40   7.8 0  -  #3c3c44 #50505a
+material bone         solid    3    1.5 0  -  #d8cfb4 #a99c7a #6e6249
+material cloth-red    solid    1    0.4 0  f  #6a1a1a #5a1414
+material fur          solid    1    0.3 0  f  #5a4a3a #4a3a2c #6e5c48
+material leather      solid    2    0.9 0  f  #3e2a1c #4a3222
+material skin         solid    1    1.0 0  -  #c8a088 #b48c74
+material hair         solid    1    0.3 0  f  #3a2a1c #2a1e14
+material steel        solid    40   7.8 0  -  #8a8e9a #a8acb8 #6a6e7a
+material gold         solid    20   9.0 0  -  #c8a040
