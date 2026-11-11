@@ -7,12 +7,16 @@ changed and streamed in and out efficiently on every target.
 
 ## ADDED Requirements
 
-### Requirement: World is a grid of 10 cm voxels in chunks
-The world SHALL be made of cubic voxels with an edge length of 0.1 world units (10 cm), grouped into chunks of 32×32×32 voxels addressed by integer chunk coordinates.
+### Requirement: World is a grid of voxels in chunks
+The world SHALL be made of cubic voxels whose edge length is one engine-wide setting (default 0.1 world units = 10 cm, provisional), grouped into chunks of 32×32×32 voxels addressed by integer chunk coordinates. No other code SHALL depend on the specific voxel size.
 
 #### Scenario: World position maps to a voxel
 - **WHEN** the world is queried at position (1.25, 0.05, -0.01)
 - **THEN** the voxel at integer coordinates (12, 0, -1) is returned, inside chunk (0, 0, -1)
+
+#### Scenario: Voxel size can be changed
+- **WHEN** the engine is built with a voxel size of 0.05 and position (1.25, 0.05, -0.01) is queried
+- **THEN** the voxel at integer coordinates (25, 1, -1) is returned and all unit tests still pass
 
 #### Scenario: Negative coordinates are handled correctly
 - **WHEN** voxel (-1, -33, 0) is written and read back

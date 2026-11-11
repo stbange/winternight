@@ -37,7 +37,11 @@ wilds to his own fortress.
 ## Story outline (draft)
 
 ### Prologue — *The Road to Hearthholm*
-The vertical slice and the visual benchmark for the engine.
+The game opens with the warrior already on his way, approaching the castle
+through the dark, snowy forest. There is no menu-driven intro: the first thing
+the player sees is the forest at night. This scene is also the vertical slice and
+the visual benchmark for the engine.
+- Opening shot: the warrior alone between black pines, the castle not yet visible.
 - A narrow road through a dark pine forest. Deep snow, moon and stars, light snowfall.
 - The player wades through knee-deep snow and leaves trails. Branches shed snow when brushed.
 - Wolves howl in the distance, and their tracks cross the road.
@@ -83,8 +87,13 @@ The vertical slice and the visual benchmark for the engine.
 |--------|-------|-------|
 | Windows, Linux | Keyboard + mouse, gamepad | Native builds. |
 | Web (desktop) | Keyboard + mouse, gamepad | Emscripten / WebGL2. |
-| Web (mobile) | **Touch** (virtual stick, camera drag, action buttons) | Switches automatically on touch-capable devices. |
+| Web (mobile) | **Touch** (virtual stick, camera drag, action buttons) | Switches automatically on touch-capable devices. **Performance reference:** the game must run smoothly on an average phone (see design). |
 | WebXR | XR controllers (motion swing for melee), hand-tracking later | Immersive VR session from the web build, first-person view. |
+
+## Voxel size
+
+Voxel size is **provisional** (10 cm to start). It will be reviewed together with
+the first playable version and is kept as one engine constant so it can change.
 
 ## Content notes
 

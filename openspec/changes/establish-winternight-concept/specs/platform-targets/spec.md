@@ -43,8 +43,23 @@ If the required graphics API is unavailable, the game SHALL show a readable erro
 - **THEN** the page shows a message that WebGL2 is required
 
 ### Requirement: Performance budgets
-The Prologue benchmark scene SHALL reach 60 fps on the reference desktop and desktop browser, 30 fps on the reference mobile browser, and the headset's native refresh rate in WebXR on the reference headset.
+The Prologue benchmark scene SHALL run smoothly on an average phone: 60 fps in the reference mobile browser with no frame over 33 ms in normal play. It SHALL also reach 60 fps on the reference desktop and desktop browser, and the headset's native refresh rate in WebXR on the reference headset.
+
+#### Scenario: Average phone benchmark
+- **WHEN** the automated benchmark flies the camera along the Prologue road in the browser of the reference phone with the default mobile preset
+- **THEN** the 95th-percentile frame time is at most 16.7 ms and the 99th-percentile frame time is at most 33 ms
 
 #### Scenario: Desktop benchmark
 - **WHEN** the automated benchmark flies the camera along the Prologue road on the reference desktop
 - **THEN** the 95th-percentile frame time is at most 16.7 ms
+
+### Requirement: Quality presets and automatic scaling
+The game SHALL offer quality presets (Mobile, Standard, High) that set view radius, shadow resolution, particle counts and glow, SHALL pick the Mobile preset on phones by default, and SHALL lower internal resolution or view radius step by step when frame time stays over budget.
+
+#### Scenario: Phone starts on Mobile preset
+- **WHEN** the web build starts for the first time on a device with a coarse primary pointer and a small screen
+- **THEN** the Mobile preset is active
+
+#### Scenario: Sustained slow frames
+- **WHEN** frame time stays above 16.7 ms for 2 seconds
+- **THEN** the renderer lowers one quality step and does not raise it again for at least 10 seconds

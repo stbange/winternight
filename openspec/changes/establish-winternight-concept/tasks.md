@@ -20,7 +20,7 @@ core lines) and game tests apply from group 1 onward.
 
 ## 3. Voxel world
 
-- [ ] 3.1 Implement the 32-bit voxel cell accessors and chunk coordinates (spec voxel-world: grid, voxel state), with unit tests including negative coordinates
+- [ ] 3.1 Implement the 32-bit voxel cell accessors and chunk coordinates with voxel size as the single constant `WN_VOXEL_SIZE` (spec voxel-world: grid, voxel state), with unit tests including negative coordinates; verify CI runs the unit tests at both 0.1 and 0.05 voxel size
 - [ ] 3.2 Implement uniform/expanded chunk storage and compaction, with unit tests
 - [ ] 3.3 Implement the material table loader (spec voxel-world: Material table), with unit tests for ordering and invalid data
 - [ ] 3.4 Implement ray casting and box overlap queries, with unit tests for hit, miss, chunk-border and fill-level cases
@@ -35,6 +35,8 @@ core lines) and game tests apply from group 1 onward.
 - [ ] 4.4 Implement per-voxel hashed colour ramps, fog, palette LUT and Bayer dithering (unit tests for hash stability and the palette LUT; golden image "palette_only_colours")
 - [ ] 4.5 Implement the headless game-test runner (`--test <script>`, SDL offscreen + llvmpipe, capture/compare/diff PNG); verify a first golden image test passes in CI
 - [ ] 4.6 Implement the meshing job system with a main-thread time-slice fallback, with unit tests for budget and priority ordering
+- [ ] 4.7 Implement quality presets (Mobile, Standard, High), phone detection for the default preset and automatic quality scaling (spec platform-targets), with unit tests for the scaling state machine and golden images taken on the Mobile preset
+- [ ] 4.8 Add a frame-time and draw-call overlay plus a benchmark fly-through mode; verify it reports 95th/99th-percentile frame times and per-frame draw calls/triangles against the D14 budget
 
 ## 5. Night lighting
 
@@ -69,7 +71,8 @@ core lines) and game tests apply from group 1 onward.
 - [ ] 9.2 Implement warrior movement, collision and third-person camera with wall avoidance, with unit tests and a game test for the camera-against-wall scenario
 - [ ] 9.3 Implement melee swings as swept-capsule edits against world and characters, with unit tests and a game test that chops through the blocking tree
 - [ ] 9.4 Implement the scene loader, triggers and events (spec game-flow), with unit tests including the missing-prefab error
-- [ ] 9.5 Author the Prologue scene (forest road, wolf tracks, fallen tree, Castle Hearthholm with lit windows, gate trigger) and verify the full scripted playthrough game test plus the benchmark golden image "benchmark_road"
+- [ ] 9.5 Publish the first playable web build of the forest walk (opening shot, snow, castle in the distance) for the user to review voxel size and look; verify it loads on an average phone and record the voxel-size decision in design.md D15 before 9.6 starts
+- [ ] 9.6 Complete the Prologue scene (forest road, wolf tracks, fallen tree, Castle Hearthholm with lit windows, gate trigger) and verify the full scripted playthrough game test plus the benchmark golden image "benchmark_road"
 
 ## 10. Web, mobile touch and WebXR
 
@@ -81,7 +84,7 @@ core lines) and game tests apply from group 1 onward.
 ## 11. Integration checks
 
 - [ ] 11.1 Run the Prologue replay on Linux, Windows and web in CI and verify identical checksums
-- [ ] 11.2 Run the benchmark fly-through on the reference devices and record results against the performance budgets in `docs/`
+- [ ] 11.2 Fix the reference phone models (D14), run the benchmark fly-through on them, the desktop and the headset, and verify the average phone meets 95th-percentile ≤ 16.7 ms and 99th-percentile ≤ 33 ms; record results in `docs/performance.md`
 - [ ] 11.3 Verify the coverage report shows ≥ 95% line coverage for the core and all game tests pass on every target
 
 ## Workflow follow-up

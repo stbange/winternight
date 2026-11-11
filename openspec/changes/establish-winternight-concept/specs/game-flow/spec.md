@@ -26,7 +26,11 @@ Scenes SHALL support trigger volumes and timed events that can start other event
 - **THEN** the scene-complete event fires
 
 ### Requirement: Prologue vertical slice
-The game SHALL include a playable Prologue in which the player walks a snowy forest road at night toward a castle with lit windows, must chop through a fallen tree blocking the road, and completes the scene at the castle gate.
+The game SHALL open with a playable Prologue in which the player walks a snowy forest road at night toward a castle with lit windows, must chop through a fallen tree blocking the road, and completes the scene at the castle gate.
+
+#### Scenario: New game opens in the forest
+- **WHEN** the player starts a new game
+- **THEN** play begins directly in the Prologue with the warrior on the forest road at night, out of sight of the castle, with no cutscene in between
 
 #### Scenario: Prologue can be completed
 - **WHEN** the scripted Prologue playthrough walks the road, destroys the blocking tree and reaches the gate

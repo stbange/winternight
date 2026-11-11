@@ -61,8 +61,11 @@ bits 28–31  block light   (0–15)  + colour from nearest emitter table
 A chunk with one value for all voxels is stored as that single value (spec
 "Memory-efficient chunk storage"). A full chunk takes 128 KiB. A 12-chunk view
 radius with a vertical span of 4 chunks means about 2,300 chunks, but most are
-uniform air or solid, so the expected live memory is under 100 MiB. That is
-acceptable for mobile browsers.
+uniform air or solid, so the expected live memory is under 100 MiB on desktop. The
+Mobile preset uses a 6-chunk radius (about 600 chunks, under 40 MiB) (D14).
+The voxel edge length is a single constant (`WN_VOXEL_SIZE`, default 0.1 m), and
+nothing else may hard-code it, because it will be reviewed after the first
+playable version (D15).
 *Alternatives:* separate layers for stain and light (more cache misses and more
 code), or 16-bit cells (no room for stain, which is central to the look).
 *Web impact:* there is no `mmap`; chunks come from a pooled allocator to avoid
@@ -84,7 +87,7 @@ fragmenting the WASM heap.
 The fallback keeps simple hosting working.
 
 ### D4. Rendering pipeline (GL 3.3 core / GLES 3.0 common subset)
-1. Shadow pass: the moon's orthographic shadow map (1024², a single cascade
+1. Shadow pass: the moon's orthographic shadow map (1024² on desktop, 512² on the Mobile preset, a single cascade
    aligned to the view and snapped to texels to stop shimmering).
 2. Opaque voxel chunks → low-res colour and depth target (480×270 default).
 3. Dynamic voxel models (characters, debris) drawn as instanced voxel meshes.
@@ -208,6 +211,36 @@ third_party/  docs/  openspec/
 .github/workflows/ci.yml
 ```
 
+### D14. Mobile-first performance budget
+The game must run smoothly on an **average phone**, so the phone, not the desktop,
+sets the budget. Every feature is designed to fit it first.
+- **Reference phone:** a mid-range Android phone (Galaxy A5x / Pixel "a" class,
+  about 2–3 years old) in Chrome, plus an iPhone of similar age in Safari. The exact
+  models are fixed when the benchmark is set up (task 11.2).
+- **Target:** 60 fps (95th-percentile frame ≤ 16.7 ms), never over 33 ms
+  (99th percentile). Smoothness beats detail.
+- **Mobile preset budget per frame:** ≤ 150 draw calls, ≤ 250k triangles,
+  6-chunk view radius hidden by fog, 512² shadow map, ≤ 2,000 particles, glow at ¼
+  of the internal resolution, internal resolution 480×270 (dynamic down to 320×180).
+- **CPU:** meshing and light updates are time-sliced on the main thread (no reliance
+  on threads), at most 4 ms per frame for world updates.
+- **Memory:** WASM heap ≤ 384 MiB, texture memory ≤ 32 MiB, download ≤ 15 MiB compressed.
+- **Automatic scaling:** if frames stay over budget, first lower the internal
+  resolution, then the view radius, then particles (spec "Quality presets and
+  automatic scaling").
+- **Battery and heat:** 60 fps cap. No rendering when the tab is hidden.
+*Why it works:* the retro look (low internal resolution, flat shading, no textures)
+is cheap on fill rate, which is what limits phone GPUs. The main costs are mesh
+count and meshing time, so greedy meshing and the remesh budget (D3, D6) matter most.
+*Desktop impact:* desktop presets only raise radius and resolution. Visual rules
+stay the same, so golden images are taken on the Mobile preset.
+
+### D15. Provisional voxel size
+The voxel size stays at 10 cm until the user has seen the first playable version
+(task 9.5). To keep that change cheap: one constant, materials and scene files in
+metres rather than voxels, prefabs stored as voxel models with their own scale that
+are resampled when loaded, and unit tests run at two voxel sizes in CI.
+
 ## Risks / Trade-offs
 
 - [llvmpipe images differ between Mesa versions] → Pin the CI image, use tolerances,
@@ -235,7 +268,7 @@ Not applicable (greenfield project).
 
 - Should the warrior be chained in the dungeon or pinned under rubble in Act II? This
   doesn't affect this milestone.
-- Is a separate higher-detail voxel scale needed for close-up characters (e.g. 5 cm)?
-  Decide after the Prologue slice shows how 10 cm characters read on screen.
-- Which reference devices define the performance budgets (proposal: Ryzen 5 / GTX 1060
-  class desktop, Pixel 7 / iPhone 13 class phone, Quest 3 browser)?
+- Voxel size (world and characters): decided with the user after the first playable
+  version (D15, task 9.6). The engine keeps it configurable until then.
+- Exact reference phone models (D14 fixes the class: an average mid-range phone),
+  plus the desktop (proposal: GTX 1060 class) and headset (proposal: Quest 3 browser).

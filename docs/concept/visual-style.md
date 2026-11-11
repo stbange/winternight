@@ -11,7 +11,7 @@ The night must read clearly. Darkness is shaped by moonlight, not by hiding thin
 | Element | Rule |
 |---------|------|
 | Internal resolution | Render to a low-resolution target (default **480×270**, options 320×180 and 640×360) and upscale with **nearest-neighbour** filtering in integer multiples, letterboxing where needed. |
-| Voxel size | 1 voxel = **10 cm**. The warrior is about 18 voxels tall. Voxels are visible but not huge. |
+| Voxel size | 1 voxel = **10 cm** (provisional, to be reviewed after the first playable version). The warrior is about 18 voxels tall. Voxels are visible but not huge. |
 | Colour | Each material has a small ramp of palette colours, varied per voxel by hash noise so surfaces don't look flat. |
 | Palette | Final image is quantised to a **64-colour master palette** using a 4×4 Bayer ordered dither. Can be switched off. |
 | Shading | Lambert + baked per-vertex voxel ambient occlusion. No specular, except a faint glint on ice and snow. |
@@ -76,5 +76,6 @@ The night must read clearly. Darkness is shaped by moonlight, not by hiding thin
 > mass of Castle Hearthholm with a row of glowing orange windows whose light falls onto the
 > snow below. Stars, and a moon partly behind thin cloud.
 
-The engine is "done enough" for production when it can render this shot at the
-budgets in `openspec/changes/establish-winternight-concept/design.md`.
+This is also the game's opening shot. The engine is "done enough" for production
+when it can render this shot smoothly **on an average phone**, at the budgets in
+`openspec/changes/establish-winternight-concept/design.md` (D14).
