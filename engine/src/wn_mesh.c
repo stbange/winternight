@@ -107,7 +107,11 @@ static inline wn_voxel cell(const grid_ctx *c, int x, int y, int z)
 }
 
 static inline bool visible(const grid_ctx *c, wn_voxel v) { return c->mats->m[wn_vox_mat(v)].kind != WN_KIND_GAS; }
-static inline bool occludes_ao(const grid_ctx *c, wn_voxel v) { return wn_mat_is_opaque(c->mats, wn_vox_mat(v)); }
+/* Low partial voxels (a thin layer of snow) do not darken their neighbours. */
+static inline bool occludes_ao(const grid_ctx *c, wn_voxel v)
+{
+    return wn_mat_is_opaque(c->mats, wn_vox_mat(v)) && (wn_vox_fill(v) == 0 || wn_vox_fill(v) >= 8);
+}
 
 /* Does neighbour nv fully cover the face of a full voxel pointing in dir? */
 static bool covers(const grid_ctx *c, wn_voxel nv, int dir)
@@ -127,7 +131,7 @@ static void emit_quad(wn_mesh *m, const uint16_t p[4][3], uint16_t color, int no
         v->x = p[i][0];
         v->y = p[i][1];
         v->z = p[i][2];
-        v->color = color;
+        v->surface = color;
         v->nao = (uint8_t)(normal | (ao[i] << 3));
         v->light = light;
         v->flags = flags;
@@ -172,23 +176,30 @@ static uint8_t face_light(const grid_ctx *c, wn_voxel front)
     return (uint8_t)((wn_vox_sky(front) << 4) | wn_vox_block(front));
 }
 
+uint16_t wn_surface_word(wn_voxel v)
+{
+    return (uint16_t)(wn_vox_mat(v) | ((wn_vox_damage(v) >> 2) << 8) | (wn_vox_stain(v) << 10) |
+                      ((wn_vox_stain_amount(v) >> 2) << 12));
+}
+
 static uint16_t cell_color(const grid_ctx *c, wn_voxel v, int x, int y, int z)
 {
-    int sh = c->opts->scale_shift;
-    int32_t wx = c->opts->hash_origin.x + ((x - 1) << sh);
-    int32_t wy = c->opts->hash_origin.y + ((y - 1) << sh);
-    int32_t wz = c->opts->hash_origin.z + ((z - 1) << sh);
-    return wn_rgb_to_565(wn_voxel_color(c->mats, v, wx, wy, wz));
+    (void)c;
+    (void)x;
+    (void)y;
+    (void)z;
+    return wn_surface_word(v);
 }
 
 /* Key packing for greedy merging: 0 = no face. */
-static uint64_t face_key(uint16_t color, const uint8_t ao[4], uint8_t light, uint8_t flags)
+static uint64_t face_key(uint16_t color, const uint8_t ao[4], uint8_t light, uint8_t flags, uint32_t height16)
 {
     uint64_t k = 1ull << 63;
     k |= (uint64_t)color;
     k |= (uint64_t)(ao[0] | ao[1] << 2 | ao[2] << 4 | ao[3] << 6) << 16;
     k |= (uint64_t)light << 24;
     k |= (uint64_t)flags << 32;
+    k |= (uint64_t)(height16 & 31u) << 40;
     return k;
 }
 
@@ -210,15 +221,18 @@ static void greedy_full(wn_mesh *out, const grid_ctx *c)
                     p[v] = j + 1;
                     wn_voxel vox = cell(c, p[0], p[1], p[2]);
                     uint64_t key = 0;
-                    if (visible(c, vox) && wn_vox_fill(vox) == 0) {
+                    /* Full voxels, plus the tops of partial voxels (merged per height). */
+                    if (visible(c, vox) && (wn_vox_fill(vox) == 0 || dir == 2)) {
                         int q[3] = {p[0], p[1], p[2]};
                         q[d] += k_sign[dir];
                         wn_voxel nb = cell(c, q[0], q[1], q[2]);
-                        if (!covers(c, nb, dir)) {
+                        bool partial = wn_vox_fill(vox) != 0;
+                        if (partial ? !visible(c, nb) : !covers(c, nb, dir)) {
                             uint8_t ao[4];
                             face_ao(c, p[0], p[1], p[2], dir, ao);
                             uint8_t fl = c->mats->m[wn_vox_mat(vox)].emit ? WN_VFLAG_EMISSIVE : 0;
-                            key = face_key(cell_color(c, vox, p[0], p[1], p[2]), ao, face_light(c, nb), fl);
+                            key = face_key(cell_color(c, vox, p[0], p[1], p[2]), ao, face_light(c, nb), fl,
+                                           wn_vox_height16(vox));
                         }
                     }
                     mask[j * nu + i] = key;
@@ -243,7 +257,8 @@ static void greedy_full(wn_mesh *out, const grid_ctx *c)
                     for (int hh = 0; hh < h; hh++)
                         for (int ww = 0; ww < w; ww++) mask[(j + hh) * nu + i + ww] = 0;
                     /* Quad corners in 1/16 voxel units. */
-                    int plane = (s + (k_sign[dir] > 0 ? 1 : 0)) * 16;
+                    int h16 = (int)((key >> 40) & 31u);
+                    int plane = s * 16 + (k_sign[dir] > 0 ? (dir == 2 ? h16 : 16) : 0);
                     int u0 = i * 16, u1 = (i + w) * 16, v0 = j * 16, v1 = (j + h) * 16;
                     uint16_t pts[4][3];
                     int cu[4] = {u0, u1, u1, u0}, cv[4] = {v0, v0, v1, v1};
@@ -296,8 +311,7 @@ static void partial_faces(wn_mesh *out, const grid_ctx *c)
                     wn_voxel nb = cell(c, q[0], q[1], q[2]);
                     int lo = 0, hi = top;
                     if (dir == 2) {
-                        /* top face always visible unless something solid sits right on it */
-                        if (visible(c, nb) && top == 16) continue;
+                        continue; /* tops are merged by the greedy pass */
                     } else if (dir == 3) {
                         if (visible(c, nb)) continue;
                     } else if (visible(c, nb)) {
@@ -310,12 +324,14 @@ static void partial_faces(wn_mesh *out, const grid_ctx *c)
                     if (dir != 3 && dir != 2) {
                         ao[2] = ao[3] = 3; /* the top edge of a partial side is open */
                     }
-                    uint8_t light = face_light(c, dir == 2 ? cell(c, x, y + 1, z) : nb);
+                    uint8_t light = face_light(c, nb);
+                    uint8_t vfl = fl;
+                    if (dir != 3 && hi - lo <= 8) vfl |= WN_VFLAG_SOFT_STEP;
                     uint16_t p[4][3];
                     int du = 16;
                     int u = k_axis[dir][1], v = k_axis[dir][2];
                     int base[3] = {bx, by, bz};
-                    int plane = base[d] + (k_sign[dir] > 0 ? (d == 1 ? top : 16) : 0);
+                    int plane = base[d] + (k_sign[dir] > 0 ? 16 : 0);
                     int cu[4] = {0, du, du, 0};
                     int cv0 = (v == 1) ? lo : 0, cv1 = (v == 1) ? hi : 16;
                     int cv[4] = {cv0, cv0, cv1, cv1};
@@ -338,7 +354,7 @@ static void partial_faces(wn_mesh *out, const grid_ctx *c)
                         ao[1] = ao[3];
                         ao[3] = ta;
                     }
-                    emit_quad(out, (const uint16_t(*)[3])p, color, dir, ao, light, fl);
+                    emit_quad(out, (const uint16_t(*)[3])p, color, dir, ao, light, vfl);
                 }
             }
         }
@@ -373,9 +389,21 @@ void wn_mesh_gather_chunk(wn_world *w, wn_ivec3 cp, wn_voxel *g)
     }
 }
 
+/* Faces are only emitted for visible voxels inside the chunk, so a chunk that
+ * is uniformly air (or another gas) has an empty mesh. */
+static bool chunk_is_empty(wn_world *w, wn_ivec3 cp)
+{
+    wn_chunk *c = wn_world_chunk(w, cp);
+    return !c || (!c->vox && w->mats->m[wn_vox_mat(c->uniform)].kind == WN_KIND_GAS);
+}
+
 void wn_mesh_chunk(wn_mesh *out, wn_world *w, wn_ivec3 cp)
 {
     const int S = WN_CHUNK_SIZE + 2;
+    if (chunk_is_empty(w, cp)) {
+        wn_mesh_clear(out);
+        return;
+    }
     wn_voxel *g = (wn_voxel *)malloc((size_t)S * S * S * sizeof(wn_voxel));
     wn_mesh_gather_chunk(w, cp, g);
     wn_mesh_opts o;
@@ -385,4 +413,95 @@ void wn_mesh_chunk(wn_mesh *out, wn_world *w, wn_ivec3 cp)
     wn_mesh_clear(out);
     wn_mesh_grid(out, g, S, S, S, w->mats, &o);
     free(g);
+}
+
+/* ---------------- Level of detail ---------------- */
+
+wn_voxel wn_mesh_downsample(const wn_voxel *vox, int n, const wn_materials *mats)
+{
+    uint32_t counts[WN_MAX_MATERIALS];
+    uint32_t used[64];
+    int nused = 0;
+    int solid = 0;
+    uint32_t sky = 0, blk = 0, stain_amt = 0, stain_type = 0, emitter = 0;
+    for (int i = 0; i < n; i++) {
+        wn_voxel v = vox[i];
+        uint32_t m = wn_vox_mat(v);
+        if (mats->m[m].kind == WN_KIND_GAS) {
+            sky = WN_MAX(sky, wn_vox_sky(v));
+            blk = WN_MAX(blk, wn_vox_block(v));
+            continue;
+        }
+        if (mats->m[m].emit) emitter = m;
+        if (wn_vox_stain_amount(v) > stain_amt) {
+            stain_amt = wn_vox_stain_amount(v);
+            stain_type = wn_vox_stain(v);
+        }
+        bool seen = false;
+        for (int k = 0; k < nused; k++)
+            if (used[k] == m) {
+                counts[m]++;
+                seen = true;
+            }
+        if (!seen && nused < 64) {
+            used[nused++] = m;
+            counts[m] = 1;
+        }
+        solid++;
+    }
+    wn_voxel out = wn_vox_set_sky(wn_vox_set_block(0, blk), sky);
+    if (solid * 2 < n && !(emitter && solid * 4 >= n)) return out;
+    uint32_t best = emitter;
+    if (!best) {
+        for (int k = 0; k < nused; k++)
+            if (!best || counts[used[k]] > counts[best] || (counts[used[k]] == counts[best] && used[k] < best)) best = used[k];
+    }
+    out = wn_vox_set_mat(out, best);
+    out = wn_vox_set_stain(out, stain_type, stain_amt);
+    return out;
+}
+
+void wn_mesh_chunk_lod(wn_mesh *out, wn_world *w, wn_ivec3 cp, int shift)
+{
+    if (shift <= 0 || chunk_is_empty(w, cp)) {
+        wn_mesh_chunk(out, w, cp);
+        return;
+    }
+    const int k = 1 << shift;
+    const int n = WN_CHUNK_SIZE >> shift;
+    const int S = n + 2;
+    wn_voxel *g = (wn_voxel *)malloc((size_t)S * S * S * sizeof(wn_voxel));
+    wn_voxel *block = (wn_voxel *)malloc((size_t)k * k * k * sizeof(wn_voxel));
+    int32_t bx = cp.x * WN_CHUNK_SIZE - k, by = cp.y * WN_CHUNK_SIZE - k, bz = cp.z * WN_CHUNK_SIZE - k;
+    for (int y = 0; y < S; y++)
+        for (int z = 0; z < S; z++)
+            for (int x = 0; x < S; x++) {
+                int i = 0;
+                for (int yy = 0; yy < k; yy++)
+                    for (int zz = 0; zz < k; zz++)
+                        for (int xx = 0; xx < k; xx++)
+                            block[i++] = wn_world_get(w, bx + x * k + xx, by + y * k + yy, bz + z * k + zz);
+                g[(y * S + z) * S + x] = wn_mesh_downsample(block, k * k * k, w->mats);
+            }
+    wn_mesh_opts o;
+    memset(&o, 0, sizeof o);
+    o.hash_origin = wn_iv3(cp.x * WN_CHUNK_SIZE, cp.y * WN_CHUNK_SIZE, cp.z * WN_CHUNK_SIZE);
+    o.use_light = true;
+    o.scale_shift = (uint8_t)shift;
+    wn_mesh_clear(out);
+    wn_mesh_grid(out, g, S, S, S, w->mats, &o);
+    free(block);
+    free(g);
+}
+
+void wn_mesh_append(wn_mesh *dst, const wn_mesh *src, uint16_t dy)
+{
+    reserve(dst, src->nverts, src->nindices);
+    uint32_t base = dst->nverts;
+    for (uint32_t i = 0; i < src->nverts; i++) {
+        wn_vertex v = src->verts[i];
+        v.y = (uint16_t)(v.y + dy);
+        dst->verts[dst->nverts++] = v;
+    }
+    for (uint32_t i = 0; i < src->nindices; i++) dst->indices[dst->nindices++] = src->indices[i] + base;
 }

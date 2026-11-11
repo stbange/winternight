@@ -1,0 +1,31 @@
+# Prologue - "The Road to Hearthholm" (spec game-flow: Prologue vertical slice).
+# The warrior walks a snowy forest road at night towards the castle.
+scene prologue
+seed 1234
+bounds -60 -6 -26 60 44 214
+chunks_y -1 14
+
+terrain 0.0 2.4 26.0
+snow 0.45 0.15
+hill 0 214 46 9.5
+hill -40 120 30 5
+hill 46 140 26 4
+road 3.4 6.5 0.011 -40 196
+forest 2.6 0.66 2.2
+tracks -16 38 14 44
+
+place ridge_gap road 64
+place fallen_pine road 64 0 0.05
+place castle_hearthholm road 196
+
+moon -0.62 0.48 -0.42 #9fb4e0 1.1
+sky #05070f #16204a
+fog #0b1026 0.030
+fire #ffb050
+ambient 0.15
+snowfall 0.04 700
+
+spawn 0 -18 0
+trigger gate -4 -2 188 4 8 195.5 reach_gate
+event reach_gate message "Castle Hearthholm"
+event reach_gate complete

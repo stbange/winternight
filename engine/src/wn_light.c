@@ -58,25 +58,60 @@ static bool in_range(const wn_world *w, int32_t y)
     return y >= w->y_min * WN_CHUNK_SIZE && y < (w->y_max + 1) * WN_CHUNK_SIZE;
 }
 
+/* Marks a chunk (and the neighbour across a border) for remeshing after a
+ * light change at local coordinates (lx,ly,lz). Cheaper than wn_world_set. */
+static void light_dirty(wn_world *w, wn_chunk *c, int lx, int ly, int lz)
+{
+    c->flags |= WN_CHUNK_DIRTY_MESH;
+    c->mesh_rev++;
+    int dx = lx == 0 ? -1 : (lx == WN_CHUNK_MASK ? 1 : 0);
+    int dy = ly == 0 ? -1 : (ly == WN_CHUNK_MASK ? 1 : 0);
+    int dz = lz == 0 ? -1 : (lz == WN_CHUNK_MASK ? 1 : 0);
+    if (dx | dy | dz) {
+        if (dx) {
+            wn_chunk *n = wn_world_chunk(w, wn_iv3(c->pos.x + dx, c->pos.y, c->pos.z));
+            if (n) n->flags |= WN_CHUNK_DIRTY_MESH, n->mesh_rev++;
+        }
+        if (dy) {
+            wn_chunk *n = wn_world_chunk(w, wn_iv3(c->pos.x, c->pos.y + dy, c->pos.z));
+            if (n) n->flags |= WN_CHUNK_DIRTY_MESH, n->mesh_rev++;
+        }
+        if (dz) {
+            wn_chunk *n = wn_world_chunk(w, wn_iv3(c->pos.x, c->pos.y, c->pos.z + dz));
+            if (n) n->flags |= WN_CHUNK_DIRTY_MESH, n->mesh_rev++;
+        }
+        w->cache = c;
+    }
+}
+
+static void chunk_write(wn_world *w, wn_chunk *c, int lx, int ly, int lz, wn_voxel v)
+{
+    if (!c->vox) wn_chunk_expand(c);
+    c->vox[wn_chunk_index(lx, ly, lz)] = v;
+    light_dirty(w, c, lx, ly, lz);
+}
+
 /* Spreads light from every queued node. */
 static void propagate(wn_world *w, lqueue *q, wn_light_channel ch)
 {
     while (q->head < q->tail) {
         lnode n = q->a[q->head++];
         g_work++;
-        wn_voxel cur = wn_world_get(w, n.x, n.y, n.z);
-        uint32_t l = chan_get(cur, ch);
+        /* Re-read: a removal may have cleared this voxel after it was queued. */
+        uint32_t l = chan_get(wn_world_get(w, n.x, n.y, n.z), ch);
         if (l <= 1) continue;
         for (int d = 0; d < 6; d++) {
             int32_t x = n.x + k_dirs[d][0], y = n.y + k_dirs[d][1], z = n.z + k_dirs[d][2];
             if (!in_range(w, y)) continue;
             wn_chunk *c = wn_world_chunk(w, wn_iv3(x >> WN_CHUNK_BITS, y >> WN_CHUNK_BITS, z >> WN_CHUNK_BITS));
             if (!c) continue;
-            wn_voxel nv = wn_chunk_get(c, x & WN_CHUNK_MASK, y & WN_CHUNK_MASK, z & WN_CHUNK_MASK);
+            int lx = x & WN_CHUNK_MASK, ly = y & WN_CHUNK_MASK, lz = z & WN_CHUNK_MASK;
+            wn_voxel nv = wn_chunk_get(c, lx, ly, lz);
             if (wn_mat_is_opaque(w->mats, wn_vox_mat(nv))) continue;
-            uint32_t target = (ch == WN_LIGHT_SKY && d == 3 && l == 15) ? 15u : l - 1u;
-            if (chan_get(nv, ch) >= target) continue;
-            wn_world_set_quiet(w, x, y, z, chan_set(nv, ch, target));
+            uint32_t dec = ch == WN_LIGHT_SKY ? w->sky_decay : 1u;
+            uint32_t target = (ch == WN_LIGHT_SKY && d == 3 && l == 15) ? 15u : (l > dec ? l - dec : 0u);
+            if (target == 0 || chan_get(nv, ch) >= target) continue;
+            chunk_write(w, c, lx, ly, lz, chan_set(nv, ch, target));
             q_push(q, x, y, z, (uint8_t)target);
         }
     }
@@ -196,14 +231,25 @@ void wn_light_column_loaded(void *user, wn_world *w, int cx, int cz)
                     uint32_t e = mats->m[m].emit;
                     v = wn_vox_set_block(wn_vox_set_sky(v, s), e);
                     c->vox[idx] = v;
-                    if (s == 15) {
-                        /* Only seed sky voxels next to something darker. */
-                        q_push(&sky, bx + x, by + y, bz + z, 15);
-                    }
                     if (e > 0) q_push(&blk, bx + x, by + y, bz + z, (uint8_t)e);
                 }
             }
         }
+        /* Seed only sky voxels next to an open voxel that is darker (under an
+         * overhang) or on the chunk border; open sky needs no spreading. */
+        for (int y = 0; y < WN_CHUNK_SIZE; y++)
+            for (int z = 0; z < WN_CHUNK_SIZE; z++)
+                for (int x = 0; x < WN_CHUNK_SIZE; x++) {
+                    wn_voxel v = c->vox[wn_chunk_index(x, y, z)];
+                    if (wn_vox_sky(v) != 15) continue;
+                    bool seed = x == 0 || z == 0 || y == 0 || x == WN_CHUNK_SIZE - 1 || z == WN_CHUNK_SIZE - 1;
+                    static const int n4[5][3] = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0}};
+                    for (int k = 0; k < 5 && !seed; k++) {
+                        wn_voxel nv = c->vox[wn_chunk_index(x + n4[k][0], y + n4[k][1], z + n4[k][2])];
+                        seed = wn_vox_sky(nv) < 14 && !wn_mat_is_opaque(mats, wn_vox_mat(nv));
+                    }
+                    if (seed) q_push(&sky, bx + x, by + y, bz + z, 15);
+                }
         c->flags |= WN_CHUNK_DIRTY_MESH;
         c->mesh_rev++;
     }

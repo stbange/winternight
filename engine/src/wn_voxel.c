@@ -186,6 +186,9 @@ void wn_world_init(wn_world *w, const wn_materials *mats, int y_min, int y_max)
     w->mats = mats;
     w->y_min = y_min;
     w->y_max = y_max;
+    /* At 10 cm voxels a decay of 1 would flood whole forests with BFS work;
+     * sky light under cover fades within ~0.5 m (moonlight has its own shadows). */
+    w->sky_decay = 3;
 }
 
 static void free_table(wn_chunk **t, uint32_t n)
@@ -377,15 +380,22 @@ int wn_world_stream(wn_world *w, wn_vec3 viewer, int radius, int max_loads)
             c = nx;
         }
     }
-    /* Load missing columns nearest first (rings of growing distance). */
+    /* Load missing chunks of the nearest incomplete columns first (rings of
+     * growing distance). A column counts as loaded once its top chunk exists;
+     * chunks are loaded bottom-up so lighting runs when the column is whole. */
     int loaded = 0;
     for (int ring = 0; ring <= radius && loaded < max_loads; ring++) {
         for (int dz = -ring; dz <= ring && loaded < max_loads; dz++) {
             for (int dx = -ring; dx <= ring && loaded < max_loads; dx++) {
                 if (WN_MAX(abs(dx), abs(dz)) != ring) continue;
-                if (wn_world_column_loaded(w, pcx + dx, pcz + dz)) continue;
-                wn_world_load_column(w, pcx + dx, pcz + dz);
-                loaded++;
+                int cx = pcx + dx, cz = pcz + dz;
+                if (wn_world_column_loaded(w, cx, cz)) continue;
+                for (int cy = w->y_min; cy <= w->y_max && loaded < max_loads; cy++) {
+                    if (wn_world_chunk(w, wn_iv3(cx, cy, cz))) continue;
+                    wn_world_load_chunk(w, wn_iv3(cx, cy, cz));
+                    loaded++;
+                }
+                if (wn_world_column_loaded(w, cx, cz) && w->on_column) w->on_column(w->column_user, w, cx, cz);
             }
         }
     }

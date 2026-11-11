@@ -151,6 +151,7 @@ struct wn_world {
     void *column_user;
     int y_min, y_max; /* vertical chunk range (inclusive) */
     wn_chunk *cache;  /* last looked-up chunk */
+    uint8_t sky_decay; /* sky light lost per voxel when spreading sideways (design D5) */
     uint32_t edit_serial;
 };
 
@@ -186,8 +187,8 @@ void wn_world_set_quiet(wn_world *w, int32_t x, int32_t y, int32_t z, wn_voxel v
 bool wn_world_is_solid(wn_world *w, int32_t x, int32_t y, int32_t z);
 
 /* Streaming (spec voxel-world: Streaming around the viewer). Loads at most
- * max_loads columns per call, nearest first, and unloads columns further than
- * radius + 1. Returns the number of columns loaded. */
+ * max_loads chunks per call, nearest columns first, and unloads columns
+ * further than radius + 1. Returns the number of chunks loaded. */
 int wn_world_stream(wn_world *w, wn_vec3 viewer, int radius, int max_loads);
 
 /* Checksum of all loaded and saved chunks (shape + stain; light excluded). */
