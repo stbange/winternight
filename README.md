@@ -12,6 +12,10 @@ that blocks the road, and reach the gate of Castle Hearthholm. The story is a
 working draft, and the voxel size (10 cm) is provisional until it has been
 reviewed (design D15).
 
+**Play it in the browser:** <https://stbange.github.io/winternight/>. It is rebuilt
+from `main` on every push. On a phone, touch controls appear. In a VR headset
+browser, use **Enter VR**.
+
 ## Concept and specs
 
 - [Game concept](docs/concept/game-concept.md): story outline, characters, pillars, gameplay
