@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1120" viewBox="0 0 1440 1120" role="img" aria-labelledby="title description">
+  <title id="title">Winternight — four winter composition studies</title>
+  <desc id="description">Schematic colour and framing studies, not engine screenshots. A moonlit road leads to warm castle windows; a feast glows under dark rafters; a pale bone dragon tears through the roof; blue snow covers the broken room and a dark red trail. Palette strips compare night snow, fire and bone.</desc>
+  <defs>
+    <clipPath id="frame"><rect width="632" height="280"/></clipPath>
+    <g id="pine">
+      <path d="M-5 0H5V-130H-5Z" fill="#121920"/>
+      <path d="M0-210L-24-167H-15L-42-126H-29L-61-76H-43L-73-27H73L43-76H61L29-126H42L15-167H24Z" fill="#0e1f1a"/>
+      <path d="M0-210L-24-167H-15L-42-126H-29L-61-76H-43L-73-27L-52-35L-34-81L-44-82L-17-132L-28-132L-7-172H-13Z" fill="#6b7cab"/>
+    </g>
+    <g id="warrior">
+      <path d="M-7-38H7V-24H-7Z" fill="#9fb0d8"/>
+      <path d="M-11-24H11L17 10H-17Z" fill="#263140"/>
+      <path d="M-11-24H-7L-10-6L-14 6H-17Z" fill="#6b7cab"/>
+      <path d="M-8 9H-1V22H-8ZM3 9H10V22H3Z" fill="#111a26"/>
+      <path d="M16-21H19V17H16Z" fill="#a99c7a"/>
+      <path d="M16-22H30V-11H19Z" fill="#9fb0d8"/>
+    </g>
+    <g id="castle">
+      <path d="M0 105V32H14V24H23V32H33V24H42V32H54V58H71V46H83V58H101V14H112V5H123V14H134V5H145V14H156V54H178V38H190V30H200V38H211V105Z" fill="#2a2a35"/>
+      <path d="M13 46H21V61H13ZM31 46H39V61H31ZM81 73H89V87H81ZM109 32H118V48H109ZM137 32H146V48H137ZM113 67H122V83H113ZM137 67H146V83H137ZM184 56H192V71H184Z" fill="#ffb050"/>
+      <path d="M13 46H17V57H13ZM109 32H113V44H109ZM137 32H141V44H137ZM184 56H188V67H184Z" fill="#ffe2a0"/>
+    </g>
+    <pattern id="snow-specks" width="54" height="39" patternUnits="userSpaceOnUse">
+      <path d="M7 6H9V8H7ZM35 24H37V26H35Z" fill="#c9d6f2" opacity="0.55"/>
+    </pattern>
+    <g id="stars" fill="#9fb0d8">
+      <path d="M42 33H44V35H42ZM121 72H123V74H121ZM209 19H211V21H209ZM281 62H283V64H281ZM351 27H353V29H351ZM397 81H399V83H397ZM515 38H517V40H515ZM584 72H586V74H584Z"/>
+    </g>
+  </defs>
+  <rect width="1440" height="1120" fill="#0b1020"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="64" y="61" fill="#e5e9f3" font-size="34" font-weight="700" letter-spacing="3">WINTERNIGHT</text>
+    <text x="64" y="92" fill="#9caac5" font-size="17">Visual direction / warmth, winter and a world that keeps the marks</text>
+    <text x="1376" y="60" text-anchor="end" fill="#9caac5" font-size="14" letter-spacing="2">CONCEPT STUDIES 01–04</text>
+
+    <g transform="translate(64 124)">
+      <g clip-path="url(#frame)">
+        <rect width="632" height="280" fill="#0b1026"/>
+        <use href="#stars"/>
+        <path d="M321 37H340V42H345V62H340V68H321V62H315V43H321Z" fill="#c9d6f2"/>
+        <path d="M0 188L97 153L192 174L288 135L380 155L460 122L542 147L632 132V280H0Z" fill="#27334f"/>
+        <use href="#castle" transform="translate(389 78) scale(.76)"/>
+        <path d="M0 239L107 205L214 228L298 183L378 200L464 169L550 191L632 180V280H0Z" fill="#6b7cab"/>
+        <path d="M155 280L239 241L326 226L374 199L416 193L382 214L346 244L274 265L258 280Z" fill="#c9d6f2"/>
+        <path d="M0 270L91 227L155 245L215 280ZM445 280L498 228L561 222L632 243V280Z" fill="#9fb0d8"/>
+        <use href="#pine" transform="translate(86 277) scale(1.16)"/>
+        <use href="#pine" transform="translate(165 244) scale(.77)"/>
+        <use href="#pine" transform="translate(570 269) scale(1.42)"/>
+        <use href="#pine" transform="translate(507 230) scale(.65)"/>
+        <path d="M267 278H279V274H267ZM279 269H290V265H279ZM290 259H300V255H290Z" fill="#3d4a75"/>
+        <use href="#warrior" transform="translate(309 239) scale(.95)"/>
+        <rect width="632" height="280" fill="url(#snow-specks)"/>
+      </g>
+      <rect y="280" width="632" height="87" fill="#151e30"/>
+      <text x="20" y="312" fill="#e5e9f3" font-size="21" font-weight="700">01 / THE APPROACH</text>
+      <text x="20" y="339" fill="#aab6cd" font-size="16">Black pines, blue snow, a small amber destination.</text>
+      <text x="20" y="358" fill="#aab6cd" font-size="14">Immediate benchmark: silhouette, trail, fog and window light.</text>
+    </g>
+
+    <g transform="translate(744 124)">
+      <g clip-path="url(#frame)">
+        <rect width="632" height="280" fill="#382b2b"/>
+        <path d="M180 26H452V230H180Z" fill="#6b4534"/>
+        <path d="M232 61H400V213H232Z" fill="#a8542b"/>
+        <path d="M263 102H369V218H263Z" fill="#ff6a1a"/>
+        <path d="M282 212V168L298 186L313 128L326 175L342 148L355 212Z" fill="#ffb050"/>
+        <path d="M300 216V187L313 164L330 199L339 183V216Z" fill="#ffe2a0"/>
+        <path d="M0 244L230 204H402L632 244V280H0Z" fill="#a27048"/>
+        <path d="M0 280L110 192H204L145 280ZM632 280L522 192H428L487 280Z" fill="#6b4534"/>
+        <path d="M0 269L110 185H204L156 269ZM632 269L522 185H428L476 269Z" fill="#d8cfb4"/>
+        <path d="M34 66H91V151H34ZM541 66H598V151H541Z" fill="#16204a"/>
+        <path d="M61 66H66V151H61ZM34 103H91V109H34ZM568 66H573V151H568ZM541 103H598V109H541Z" fill="#151a27"/>
+        <path d="M0 0H632V24H0ZM76 0H100V245H76ZM533 0H557V245H533ZM0 20L316 101L632 20V44L316 125L0 44Z" fill="#171c27"/>
+        <path d="M220 185H236V208H220ZM394 186H412V209H394Z" fill="#172034"/>
+        <path d="M216 207H239L249 241H207ZM389 208H416L424 243H380Z" fill="#263140"/>
+        <path d="M394 185H410V191H394Z" fill="#d8cfb4"/>
+        <use href="#warrior" transform="translate(309 246) scale(.9)"/>
+      </g>
+      <rect y="280" width="632" height="87" fill="#151e30"/>
+      <text x="20" y="312" fill="#e5e9f3" font-size="21" font-weight="700">02 / THE FEAST</text>
+      <text x="20" y="339" fill="#aab6cd" font-size="16">A pool of human warmth under heavy dark rafters.</text>
+      <text x="20" y="358" fill="#aab6cd" font-size="14">Future study: the blue windows keep winter in the frame.</text>
+    </g>
+
+    <g transform="translate(64 530)">
+      <g clip-path="url(#frame)">
+        <rect width="632" height="280" fill="#0b1026"/>
+        <use href="#stars"/>
+        <path d="M0 0H111L177 61L247 106L204 125L137 90L74 43H0ZM474 0H632V44H558L514 90L466 103L443 83Z" fill="#454555"/>
+        <path d="M0 140L204 168L224 280H0ZM632 126L455 169L412 280H632Z" fill="#382b2b"/>
+        <path d="M0 248L170 213L255 240L359 205L483 219L632 194V280H0Z" fill="#6b4534"/>
+        <path d="M231 95L278 69L334 89L354 75L375 79L367 95L344 105L312 94L280 89L246 112Z" fill="#d8cfb4"/>
+        <path d="M348 76L365 59L389 64L403 83L387 95L368 91Z" fill="#d8cfb4"/>
+        <path d="M377 70H387V76H377Z" fill="#1a5a50"/>
+        <path d="M255 90L193 40L128 31L156 48L194 56L232 93ZM308 90L369 36L455 25L488 43L446 35L386 51L331 104Z" fill="#a99c7a"/>
+        <path d="M192 42L179 103L190 98L203 51ZM160 38L137 83L149 78L171 44ZM369 39L392 111L402 119L380 44ZM419 32L455 90L466 95L430 33Z" fill="#d8cfb4"/>
+        <path d="M274 88L267 118L282 135L288 127L278 112L285 91ZM299 91L293 124L310 139L317 132L305 117L310 94ZM320 97L318 121L332 131L340 124L329 116L331 100Z" fill="#d8cfb4"/>
+        <path d="M245 108L214 130L186 132L171 154L178 159L195 140L222 139L254 117Z" fill="#a99c7a"/>
+        <path d="M52 130L171 170L164 188L44 147ZM464 138L558 100L566 117L473 157Z" fill="#6e6249"/>
+        <path d="M261 169H272V188H261ZM390 158H405V174H390ZM200 194H218V206H200ZM448 187H459V203H448Z" fill="#6a6a7a"/>
+        <path d="M30 245L99 212L175 230L130 254Z" fill="#ff6a1a"/>
+        <path d="M479 229L527 201L581 217L550 237Z" fill="#1a5a50"/>
+        <path d="M518 220H540V224H518Z" fill="#7dffc0"/>
+        <use href="#warrior" transform="translate(312 244) scale(.73)"/>
+        <rect width="632" height="280" fill="url(#snow-specks)"/>
+      </g>
+      <rect y="280" width="632" height="87" fill="#151e30"/>
+      <text x="20" y="312" fill="#e5e9f3" font-size="21" font-weight="700">03 / THE RUPTURE</text>
+      <text x="20" y="339" fill="#aab6cd" font-size="16">Bone and negative space tear open the warm room.</text>
+      <text x="20" y="358" fill="#aab6cd" font-size="14">Future study: one roof strike, large pieces, local green light.</text>
+    </g>
+
+    <g transform="translate(744 530)">
+      <g clip-path="url(#frame)">
+        <rect width="632" height="280" fill="#16204a"/>
+        <use href="#stars"/>
+        <path d="M0 0H166L219 71L189 92L132 49H0ZM497 0H632V51H541L506 90L471 86Z" fill="#2a2a35"/>
+        <path d="M0 85H68V224H0ZM568 78H632V235H568ZM202 56H226V118H202Z" fill="#454555"/>
+        <path d="M227 112H411V217H227Z" fill="#454555"/>
+        <path d="M257 139H380V219H257Z" fill="#263140"/>
+        <path d="M278 207H299V213H278ZM320 211H337V215H320Z" fill="#a83210"/>
+        <path d="M0 240L125 202L210 229L300 217L393 241L516 194L632 231V280H0Z" fill="#9fb0d8"/>
+        <path d="M0 253L126 215L209 241L277 231L316 246L383 255L515 211L632 244V280H0Z" fill="#c9d6f2"/>
+        <path d="M81 208L190 116L207 133L99 225Z" fill="#6e6249"/>
+        <path d="M79 206L187 113L198 123L89 215Z" fill="#9fb0d8"/>
+        <path d="M438 247L478 222L515 231L482 259Z" fill="#454555"/>
+        <path d="M439 244L477 219L514 228L480 248Z" fill="#c9d6f2"/>
+        <path d="M222 280L248 264L280 259L299 248" fill="none" stroke="#3d4a75" stroke-width="9"/>
+        <path d="M221 277H230V280H221ZM251 264H259V268H251ZM278 254H285V258H278Z" fill="#5a0a0c"/>
+        <use href="#warrior" transform="translate(316 232) scale(.8)"/>
+        <rect width="632" height="280" fill="url(#snow-specks)"/>
+      </g>
+      <rect y="280" width="632" height="87" fill="#151e30"/>
+      <text x="20" y="312" fill="#e5e9f3" font-size="21" font-weight="700">04 / THE AFTERMATH</text>
+      <text x="20" y="339" fill="#aab6cd" font-size="16">The same place, exposed to winter, keeping its wounds.</text>
+      <text x="20" y="358" fill="#aab6cd" font-size="14">Future study: snow burial, dark stains and an editable escape.</text>
+    </g>
+
+    <g transform="translate(64 956)">
+      <text fill="#aab6cd" font-size="16" letter-spacing="2">NIGHT / SNOW</text>
+      <path d="M0 17H60V49H0Z" fill="#05070f"/><path d="M60 17H120V49H60Z" fill="#16204a"/><path d="M120 17H180V49H120Z" fill="#3d4a75"/><path d="M180 17H240V49H180Z" fill="#6b7cab"/><path d="M240 17H300V49H240Z" fill="#9fb0d8"/><path d="M300 17H360V49H300Z" fill="#c9d6f2"/>
+    </g>
+    <g transform="translate(540 956)">
+      <text fill="#aab6cd" font-size="16" letter-spacing="2">FIRE / WOOD</text>
+      <path d="M0 17H60V49H0Z" fill="#382b2b"/><path d="M60 17H120V49H60Z" fill="#6b4534"/><path d="M120 17H180V49H120Z" fill="#a83210"/><path d="M180 17H240V49H180Z" fill="#ff6a1a"/><path d="M240 17H300V49H240Z" fill="#ffb050"/><path d="M300 17H360V49H300Z" fill="#ffe2a0"/>
+    </g>
+    <g transform="translate(1016 956)">
+      <text fill="#aab6cd" font-size="16" letter-spacing="2">BONE / MARKS / MAGIC</text>
+      <path d="M0 17H60V49H0Z" fill="#6e6249"/><path d="M60 17H120V49H60Z" fill="#a99c7a"/><path d="M120 17H180V49H120Z" fill="#d8cfb4"/><path d="M180 17H240V49H180Z" fill="#5a0a0c"/><path d="M240 17H300V49H240Z" fill="#1a5a50"/><path d="M300 17H360V49H300Z" fill="#7dffc0"/>
+    </g>
+    <text x="64" y="1060" fill="#9caac5" font-size="16">Schematic framing and colour only. Voxel materials, lighting and interaction still need engine studies.</text>
+    <text x="64" y="1088" fill="#697b9b" font-size="14">Working story and palette / no final assets / no engine screenshot or performance claim</text>
+  </g>
+</svg>

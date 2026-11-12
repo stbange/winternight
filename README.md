@@ -18,14 +18,23 @@ browser, use **Enter VR**.
 
 ## Concept and specs
 
-- [Game concept](docs/concept/game-concept.md): story outline, characters, pillars, gameplay
-- [Visual style guide](docs/concept/visual-style.md): retro rendering, palette, lighting, snow, blood, destruction
+- [Game concept](docs/concept/game-concept.md): player experience, flexible story scaffold, material interactions and staged showcase
+- [Visual style guide](docs/concept/visual-style.md): composition, readable darkness, materials, palette, snow, blood and XR presentation
+- [Composition board](docs/concept/boards/winter-night.svg): four schematic colour studies (illustrations, not engine screenshots)
+- [Voxel engine concept](docs/concept/voxel-engine.md): C/SDL3/OpenGL architecture, editable world state, limits, budgets and prototype gaps
+- [Validation plan](docs/concept/validation-plan.md): >=95% core coverage, game-test evidence, proposed scenario checks and hardware review
 - [Performance notes](docs/performance.md): budgets, reference devices, measurements
+- [Concept refinement](openspec/changes/refine-visual-engine-concept/): documentation-only OpenSpec proposal, design and completed documentation tasks; runtime specs deliberately unchanged
 - [OpenSpec change `establish-winternight-concept`](openspec/changes/establish-winternight-concept/):
   [proposal](openspec/changes/establish-winternight-concept/proposal.md),
   [design](openspec/changes/establish-winternight-concept/design.md),
   [specs](openspec/changes/establish-winternight-concept/specs/),
   [tasks](openspec/changes/establish-winternight-concept/tasks.md)
+
+The current concept pass focuses on visuals and engine direction. Story names
+remain placeholders. The concept documents distinguish the existing prototype,
+proposed follow-up work and performance targets that still need real-device
+measurements; they do not claim a full castle-collapse or rescue campaign.
 
 ## Controls
 
