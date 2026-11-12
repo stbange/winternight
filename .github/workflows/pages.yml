@@ -1,4 +1,5 @@
-# Publishes the web build (WebGL2, touch, WebXR) to GitHub Pages on every push to main.
+# Publishes the web build (WebGL2, touch, WebXR) to GitHub Pages on every push
+# to main by updating the gh-pages branch, which GitHub Pages serves.
 name: Web build on GitHub Pages
 
 on:
@@ -7,16 +8,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -27,25 +26,16 @@ jobs:
         run: |
           emcmake cmake -S . -B build/web -DCMAKE_BUILD_TYPE=Release -DWN_BUILD_TESTS=OFF
           cmake --build build/web
-      - name: Assemble site
+      - name: Update the gh-pages branch
         run: |
-          mkdir -p _site
+          mkdir _site
           cp build/web/winternight.html build/web/winternight.js build/web/winternight.wasm build/web/winternight.data _site/
           cp build/web/winternight.html _site/index.html
           touch _site/.nojekyll
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          cd _site
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Web build of Winternight (main ${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
