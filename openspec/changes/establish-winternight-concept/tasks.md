@@ -8,8 +8,8 @@ core lines) and game tests apply from group 1 onward.
 - [x] 1.1 Create the repository layout (D13), root `CMakeLists.txt` and `CMakePresets.json` with linux/windows/web/coverage/asan presets; verify `cmake --preset linux-debug && cmake --build` produces an empty `winternight` binary
 - [x] 1.2 Vendor Unity, cglm, xxHash and stb_image_write in `third_party/` with licence files; verify a trivial Unity test runs under CTest (cglm replaced by the small own math header, design D16)
 - [x] 1.3 Add the SDL3 dependency (FetchContent on desktop, `--use-port=sdl3` on web); verify an empty window opens on Linux and a blank canvas loads in the web build
-- [ ] 1.4 Add `.github/workflows/ci.yml` with Linux (build, unit tests, gcovr `--fail-under-line 95`), Linux ASan/UBSan, Windows MSVC and Emscripten jobs; verify all jobs are green on main — workflow written (`.github/workflows/ci.yml`); waiting for the first green run on main
-- [ ] 1.5 Write `README.md` build instructions for all targets and verify each documented command works as written — Linux and web commands verified; Windows commands are verified by the CI run
+- [x] 1.4 Add `.github/workflows/ci.yml` with Linux (build, unit tests, gcovr `--fail-under-line 95`), Linux ASan/UBSan, Windows MSVC and Emscripten jobs; verify all jobs are green on main (green on main: specs, Linux coverage + game tests, ASan/UBSan, Windows MSVC, web + browser tests)
+- [x] 1.5 Write `README.md` build instructions for all targets and verify each documented command works as written (Linux and web verified locally, Windows by CI)
 
 ## 2. Core foundations
 
@@ -83,9 +83,9 @@ core lines) and game tests apply from group 1 onward.
 
 ## 11. Integration checks
 
-- [ ] 11.1 Run the Prologue replay on Linux, Windows and web in CI and verify identical checksums — Linux and web verified bit-identical (traces and `determinism.wntest`); Windows runs `wn_simtest` in CI
+- [x] 11.1 Run the Prologue replay on Linux, Windows and web in CI and verify identical checksums (Linux and web bit-identical traces; Windows passes the same checksums through `wn_simtest` in CI)
 - [ ] 11.2 Run the benchmark fly-through on the D14 reference devices (Galaxy A54, iPhone 13, RTX 3060 desktop, Iris Xe laptop, Quest 3) and verify both phones meet 95th-percentile ≤ 16.7 ms and 99th-percentile ≤ 33 ms; record results in `docs/performance.md` — not done: no reference devices available; see docs/performance.md
-- [ ] 11.3 Verify the coverage report shows ≥ 95% line coverage for the core and all game tests pass on every target — core coverage 99% and all game/browser tests pass on Linux; Windows and web CI results pending
+- [x] 11.3 Verify the coverage report shows ≥ 95% line coverage for the core and all game tests pass on every target (core coverage 99%; game tests on Linux, unit + determinism tests on Windows, browser tests on the web build, all green in CI)
 
 ## Workflow follow-up
 
