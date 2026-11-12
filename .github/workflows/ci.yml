@@ -44,6 +44,7 @@ jobs:
           ctest --test-dir build/cov --output-on-failure
       - name: Coverage gate (>= 95% lines of the core)
         run: >
+          mkdir -p coverage &&
           gcovr -r . build/cov --filter 'engine/' --filter 'game/' --exclude-unreachable-branches
           --fail-under-line 95 --print-summary --html-details coverage/index.html
       - name: Unit tests at 5 cm voxels (voxel size stays configurable, design D15)
