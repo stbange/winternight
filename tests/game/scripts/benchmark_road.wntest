@@ -1,0 +1,8 @@
+# The benchmark / opening shot (docs/concept/visual-style.md) on the Mobile
+# preset; also checks that only palette colours reach the screen
+# (spec retro-rendering: Only palette colours on screen).
+scene prologue
+seed 1234
+preset mobile
+at 2 capture benchmark_road tolerance 24 maxdiff 2 palette 1
+end 3

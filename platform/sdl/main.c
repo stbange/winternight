@@ -70,6 +70,7 @@ typedef struct app {
     bool bench;
     uint32_t bench_frames;
     /* XR */
+    bool paused; /* tab hidden (spec platform-targets: Hidden tab pauses) */
     bool xr_active;
     wn_xr_turn xr_turn;
     uint32_t xr_frames, xr_views;
@@ -187,6 +188,7 @@ static void handle_event(app *a, const SDL_Event *e)
     switch (e->type) {
     case SDL_EVENT_QUIT: a->running = false; break;
     case SDL_EVENT_KEY_DOWN:
+        wn_touch_notice_device(&a->touch, WN_DEVICE_KEYBOARD_MOUSE);
         if (e->key.scancode == SDL_SCANCODE_F3 && !e->key.repeat) a->show_stats = !a->show_stats;
         if (e->key.scancode == SDL_SCANCODE_F11 && !e->key.repeat)
             SDL_SetWindowFullscreen(a->win, !(SDL_GetWindowFlags(a->win) & SDL_WINDOW_FULLSCREEN));
@@ -209,7 +211,10 @@ static void handle_event(app *a, const SDL_Event *e)
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         wn_input_set(&a->input, WN_SRC_PAD_AXIS, e->gaxis.axis, (float)e->gaxis.value / 32767.0f);
         break;
-    case SDL_EVENT_GAMEPAD_BUTTON_DOWN: wn_input_set(&a->input, WN_SRC_PAD_BUTTON, e->gbutton.button, 1.0f); break;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+        wn_touch_notice_device(&a->touch, WN_DEVICE_GAMEPAD);
+        wn_input_set(&a->input, WN_SRC_PAD_BUTTON, e->gbutton.button, 1.0f);
+        break;
     case SDL_EVENT_GAMEPAD_BUTTON_UP: wn_input_set(&a->input, WN_SRC_PAD_BUTTON, e->gbutton.button, 0.0f); break;
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_MOTION:
@@ -246,6 +251,15 @@ static void test_capture(app *a, const wn_gt_cmd *c)
         return;
     }
     char path[512];
+    if (c->palette) {
+        int bx = 0, by = 0;
+        if (!wn_image_in_palette(img, w, h, a->palette.colors, a->palette.count, &bx, &by))
+            wn_gametest_fail(&a->test, "capture '%s': pixel %d,%d is not a palette colour", c->name, bx, by);
+    }
+    if (!a->golden_dir[0]) { /* no golden images on this target (web): checks only */
+        free(img);
+        return;
+    }
     snprintf(path, sizeof path, "%.255s/%.47s.png", a->out_dir, c->name);
     wn_png_write(path, img, w, h);
     snprintf(path, sizeof path, "%.255s/%.47s.png", a->golden_dir, c->name);
@@ -296,6 +310,23 @@ static void test_frame(app *a)
     }
     wn_gametest_steer(&a->test, &a->game);
     wn_input_frame f = wn_gametest_input(&a->test, step);
+    if (a->test.trace > 0 && step % (uint32_t)a->test.trace == 0) {
+        uint32_t px, py, pz;
+        memcpy(&px, &a->game.player.pos.x, 4);
+        memcpy(&py, &a->game.player.pos.y, 4);
+        memcpy(&pz, &a->game.player.pos.z, 4);
+        printf("TRACE %u %08x pos %08x %08x %08x edits %u debris %08x fx %08x n %u g %u st %u\n", step,
+               wn_game_checksum(&a->game), px, py, pz, a->game.world.edit_serial, wn_debris_checksum(&a->game.debris),
+               wn_fx_checksum(&a->game.fx), a->game.fx.ncosmetic, a->game.fx.count, a->game.fx.stains_written);
+        if (a->test.trace_particles)
+            for (uint32_t i = 0; i < a->game.fx.count; i++) {
+                const wn_particle *pp = &a->game.fx.p[i];
+                uint32_t q[6];
+                memcpy(q, &pp->pos, 12);
+                memcpy(q + 3, &pp->vel, 12);
+                printf("  P %u type %u %08x %08x %08x v %08x %08x %08x\n", i, pp->type, q[0], q[1], q[2], q[3], q[4], q[5]);
+            }
+    }
     wn_game_step(&a->game, &f);
     /* Deterministic streaming in tests: everything is loaded before each step. */
     wn_game_stream(&a->game, 1 << 20);
@@ -303,6 +334,17 @@ static void test_frame(app *a)
 
 /* Tests render only every 30th step (and at captures) so long runs stay fast. */
 static bool test_should_render(const app *a) { return a->game.step % 30 == 0; }
+
+static void update_status(app *a)
+{
+    snprintf(a->status, sizeof a->status,
+             "{\"step\":%llu,\"checksum\":%u,\"x\":%.3f,\"y\":%.3f,\"z\":%.3f,\"touch\":%s,\"preset\":\"%s\","
+             "\"xr\":%s,\"xr_frames\":%u,\"xr_views\":%u,\"complete\":%s,\"chunks\":%u,\"columns\":%u,\"ms\":%.2f}",
+             (unsigned long long)a->game.step, wn_game_checksum(&a->game), (double)a->game.player.pos.x,
+             (double)a->game.player.pos.y, (double)a->game.player.pos.z, a->touch.visible ? "true" : "false",
+             wn_preset_name(a->quality.preset), a->xr_active ? "true" : "false", a->xr_frames, a->xr_views,
+             a->game.complete ? "true" : "false", a->game.world.nchunks, a->view.ncols, (double)a->last_frame_ms);
+}
 
 /* ---------------- main frame ---------------- */
 
@@ -312,6 +354,10 @@ static void frame(void *user)
     SDL_Event e;
     while (SDL_PollEvent(&e)) handle_event(a, &e);
     if (a->xr_active) return; /* XR frames are driven by the XR session */
+    if (a->paused) {
+        a->last_counter = SDL_GetPerformanceCounter();
+        return;
+    }
     SDL_GetWindowSizeInPixels(a->win, &a->win_w, &a->win_h);
     uint64_t now = SDL_GetPerformanceCounter();
     double dt = (double)(now - a->last_counter) / (double)SDL_GetPerformanceFrequency();
@@ -338,7 +384,6 @@ static void frame(void *user)
             if (a->record_path[0]) wn_replay_push(&a->record, &f, wn_game_checksum(&a->game));
             wn_game_step(&a->game, &f);
         }
-        wn_touch_notice_device(&a->touch, a->input.last_device);
         /* Streaming and meshing within a per-frame budget (design D14). */
         int chunk_budget = a->quality.preset == WN_PRESET_MOBILE ? 3 : 8;
         wn_game_stream(&a->game, chunk_budget);
@@ -362,13 +407,7 @@ static void frame(void *user)
                a->stats.max_draw_calls, a->stats.max_triangles);
         a->running = false;
     }
-    snprintf(a->status, sizeof a->status,
-             "{\"step\":%llu,\"checksum\":%u,\"x\":%.3f,\"y\":%.3f,\"z\":%.3f,\"touch\":%s,\"preset\":\"%s\","
-             "\"xr\":%s,\"xr_frames\":%u,\"xr_views\":%u,\"complete\":%s,\"chunks\":%u,\"columns\":%u,\"ms\":%.2f}",
-             (unsigned long long)a->game.step, wn_game_checksum(&a->game), (double)a->game.player.pos.x,
-             (double)a->game.player.pos.y, (double)a->game.player.pos.z, a->touch.visible ? "true" : "false",
-             wn_preset_name(a->quality.preset), a->xr_active ? "true" : "false", a->xr_frames, a->xr_views,
-             a->game.complete ? "true" : "false", a->game.world.nchunks, a->view.ncols, (double)a->last_frame_ms);
+    update_status(a);
 #ifdef __EMSCRIPTEN__
     if (!a->running) emscripten_cancel_main_loop();
 #endif
@@ -380,6 +419,16 @@ static void frame(void *user)
 EM_JS(int, wn_js_coarse_pointer, (void), {
     return (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ? 1 : 0;
 });
+extern void wn_web_xr_init(void); /* platform/web/wn_web.js */
+
+static bool on_visibility(int type, const EmscriptenVisibilityChangeEvent *e, void *user)
+{
+    (void)type;
+    app *a = (app *)user;
+    a->paused = e->hidden != 0;
+    a->last_counter = SDL_GetPerformanceCounter(); /* no catch-up after the pause */
+    return false;
+}
 EM_JS(void, wn_js_ready, (void), {
     if (typeof Module !== 'undefined' && Module.onWinternightReady) Module.onWinternightReady();
 });
@@ -406,6 +455,7 @@ void wn_xr_session_ended(void)
     g_app->game.cam.first_person = false;
     g_app->vignette = 0.0f;
     g_app->last_counter = SDL_GetPerformanceCounter();
+    update_status(g_app);
 }
 
 /* Called by the WebXR bridge for every XR frame. views: count * 32 floats
@@ -447,6 +497,7 @@ void wn_xr_frame(const float *views, const int *viewports, int count, unsigned f
         render(a, 1.0f, fbo, vp[0], vp[1], vp[2], vp[3], v == 0, v2.m, proj.m, true);
         a->xr_views++;
     }
+    update_status(a);
     (void)fb_w;
     (void)fb_h;
 }
@@ -619,6 +670,8 @@ int main(int argc, char **argv)
     a->last_counter = SDL_GetPerformanceCounter();
     wn_log(WN_LOG_INFO, "scene '%s' ready: %u chunks, preset %s", a->scene, a->game.world.nchunks, wn_preset_name(pid));
 #ifdef __EMSCRIPTEN__
+    wn_web_xr_init();
+    emscripten_set_visibilitychange_callback(a, false, on_visibility);
     wn_js_ready();
     emscripten_set_main_loop_arg(frame, a, 0, false);
     return 0;

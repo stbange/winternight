@@ -1,0 +1,12 @@
+{
+  "name": "winternight-web-tests",
+  "private": true,
+  "description": "Browser tests for the Winternight web build (spec quality-gates: Browser tests)",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 load.test.js touch.test.js xr.test.js determinism.test.js"
+  },
+  "devDependencies": {
+    "iwer": "2.8.0",
+    "playwright": "1.63.0"
+  }
+}

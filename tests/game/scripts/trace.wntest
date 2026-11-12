@@ -1,0 +1,8 @@
+# Debug helper: prints the game state every step (compare native vs web).
+scene prologue
+seed 1234
+preset mobile
+trace 1
+at 1 autopilot run
+at 300 autopilot run chop 40
+end 901

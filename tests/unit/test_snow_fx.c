@@ -7,6 +7,9 @@
 #include <limits.h>
 #include <string.h>
 
+/* Positions in voxel units, so the tests hold for any WN_VOXEL_SIZE. */
+#define V(x) ((float)(x) * WN_VOXEL_SIZE)
+
 void setUp(void) {}
 void tearDown(void) {}
 
@@ -36,8 +39,8 @@ static void test_half_filled_voxel(void)
     make_world(&w, 0);
     wn_world_set(&w, 3, 0, 3, wn_vox_make(WN_MAT_SNOW, 8));
     TEST_ASSERT_EQUAL_INT32(8, top16(&w, 3, 3));
-    TEST_ASSERT_TRUE(wn_world_box_overlaps(&w, wn_v3(0.31f, 0.0f, 0.31f), wn_v3(0.39f, 0.04f, 0.39f)));
-    TEST_ASSERT_FALSE(wn_world_box_overlaps(&w, wn_v3(0.31f, 0.06f, 0.31f), wn_v3(0.39f, 0.09f, 0.39f)));
+    TEST_ASSERT_TRUE(wn_world_box_overlaps(&w, wn_v3(V(3.1), 0.0f, V(3.1)), wn_v3(V(3.9), V(0.4), V(3.9))));
+    TEST_ASSERT_FALSE(wn_world_box_overlaps(&w, wn_v3(V(3.1), V(0.6), V(3.1)), wn_v3(V(3.9), V(0.9), V(3.9))));
     TEST_ASSERT_EQUAL_INT32(INT32_MIN, wn_snow_column_top16(&w, 500, 500, 63));
     wn_world_free(&w);
 }
@@ -125,8 +128,8 @@ static void test_wading_leaves_trail_and_it_fills(void)
     wn_snow_init(&s);
     wn_edit_ctx e;
     wn_edit_begin(&e, &w);
-    /* walk 5 m along +x */
-    for (float x = 0.0f; x < 5.0f; x += 0.35f) wn_snow_footprint(&s, &e, wn_v3(x, 0.0f, 0.05f), 0.12f);
+    /* walk 50 voxels (5 m at 10 cm) along +x */
+    for (float x = 0.0f; x < 50.0f; x += 3.5f) wn_snow_footprint(&s, &e, wn_v3(V(x), 0.0f, V(0.5)), V(1.2));
     wn_edit_end(&e);
     int32_t in_trail = top16(&w, 25, 0), beside = top16(&w, 25, 5);
     TEST_ASSERT_TRUE(in_trail < beside);
@@ -150,12 +153,13 @@ static void test_deep_snow_is_slower(void)
     snow_layer(&w, 10, 10, 20, 20, 5 * 16);
     wn_snow s;
     wn_snow_init(&s);
-    float stone = wn_snow_speed_factor(&s, &w, wn_v3(0.05f, 0.0f, 0.05f));
-    float snow = wn_snow_speed_factor(&s, &w, wn_v3(1.55f, 0.5f, 1.55f));
+    s.knee_height = V(5); /* 0.5 m at 10 cm voxels */
+    float stone = wn_snow_speed_factor(&s, &w, wn_v3(V(0.5), 0.0f, V(0.5)));
+    float snow = wn_snow_speed_factor(&s, &w, wn_v3(V(15.5), V(5), V(15.5)));
     TEST_ASSERT_EQUAL_FLOAT(1.0f, stone);
     TEST_ASSERT_TRUE(snow < stone);
     TEST_ASSERT_TRUE(snow >= s.min_speed);
-    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 0.5f, wn_snow_depth_at(&w, wn_v3(1.55f, 0.5f, 1.55f)));
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, V(5), wn_snow_depth_at(&w, wn_v3(V(15.5), V(5), V(15.5))));
     TEST_ASSERT_EQUAL_FLOAT(0.0f, wn_snow_depth_at(&w, wn_v3(500.0f, 0.0f, 500.0f)));
     wn_world_free(&w);
 }
@@ -331,8 +335,8 @@ static void test_pool_forms_and_freezes(void)
     wn_fx_init(&fx, 2);
     wn_edit_ctx e;
     wn_edit_begin(&e, &w);
-    TEST_ASSERT_EQUAL_INT(1, wn_fx_blood_pool(&fx, &e, wn_v3(1.05f, 0.4f, 1.05f), 15));
-    TEST_ASSERT_EQUAL_INT(0, wn_fx_blood_pool(&fx, &e, wn_v3(1.05f, 0.4f, 1.05f), 10)); /* adds to the cell */
+    TEST_ASSERT_EQUAL_INT(1, wn_fx_blood_pool(&fx, &e, wn_v3(V(10.5), V(4), V(10.5)), 15));
+    TEST_ASSERT_EQUAL_INT(0, wn_fx_blood_pool(&fx, &e, wn_v3(V(10.5), V(4), V(10.5)), 10)); /* adds to the cell */
     wn_edit_end(&e);
     TEST_ASSERT_EQUAL_UINT32(WN_MAT_BLOOD, wn_vox_mat(wn_world_get(&w, 10, 0, 10)));
     for (int i = 0; i < 2 * WN_SIM_HZ; i++) wn_fx_step(&fx, &w, wn_v3(0, 0, 0), WN_SIM_DT);
@@ -364,7 +368,7 @@ static void test_pool_forms_and_freezes(void)
     wn_fx_step(&fx, &w, wn_v3(0, 0, 0), WN_SIM_DT);
     TEST_ASSERT_EQUAL_UINT32(0, fx.npool);
     /* cannot pool inside solid */
-    TEST_ASSERT_EQUAL_INT(0, wn_fx_blood_pool(&fx, &e, wn_v3(0.05f, -0.5f, 0.05f), 8));
+    TEST_ASSERT_EQUAL_INT(0, wn_fx_blood_pool(&fx, &e, wn_v3(V(0.5), V(-5), V(0.5)), 8));
     wn_edit_end(&e);
     wn_world_free(&w);
 }
@@ -378,11 +382,16 @@ static void test_particles_snowfall_and_capacity(void)
     fx.snowfall = 600.0f;
     fx.capacity = 100;
     for (int i = 0; i < 60; i++) wn_fx_step(&fx, &w, wn_v3(0, 0, 0), WN_SIM_DT);
-    TEST_ASSERT_TRUE(fx.count <= 100);
-    TEST_ASSERT_TRUE(fx.count > 50);
-    /* gameplay particles may exceed the preset capacity */
+    TEST_ASSERT_TRUE(fx.ncosmetic <= 100);
+    TEST_ASSERT_TRUE(fx.ncosmetic > 50);
+    TEST_ASSERT_EQUAL_UINT32(0, fx.count); /* snowflakes never enter the gameplay pool */
+    /* gameplay particles are not limited by the cosmetic preset capacity */
     TEST_ASSERT_NOT_NULL(wn_fx_spawn(&fx, WN_PART_BLOOD, wn_v3(0, 2, 0), wn_v3(0, 0, 0), 0, 1.0f));
     TEST_ASSERT_NULL(wn_fx_spawn(&fx, WN_PART_SNOWFLAKE, wn_v3(0, 2, 0), wn_v3(0, 0, 0), 0, 1.0f));
+    /* the gameplay checksum ignores cosmetic particles */
+    uint32_t c0 = wn_fx_checksum(&fx);
+    fx.ncosmetic = 0;
+    TEST_ASSERT_EQUAL_UINT32(c0, wn_fx_checksum(&fx));
     wn_fx_dust(&fx, wn_v3(0, 1, 0), 0x808080, 5);
     uint32_t c1 = wn_fx_checksum(&fx);
     for (int i = 0; i < 30 * WN_SIM_HZ; i++) wn_fx_step(&fx, &w, wn_v3(0, 0, 0), WN_SIM_DT);

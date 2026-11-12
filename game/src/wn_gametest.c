@@ -88,6 +88,10 @@ bool wn_gametest_load(wn_gametest *t, const char *text, char *err, size_t errlen
         } else if (wn_parser_is(&p, 0, "replay")) {
             if (!wn_parser_expect_fields(&p, 2)) break;
             snprintf(t->replay, sizeof t->replay, "%s", p.fields[1]);
+        } else if (wn_parser_is(&p, 0, "trace")) {
+            if (!wn_parser_int(&p, 1, &iv)) break;
+            t->trace = iv;
+            t->trace_particles = wn_parser_is(&p, 2, "particles");
         } else if (wn_parser_is(&p, 0, "end")) {
             if (!wn_parser_int(&p, 1, &iv)) break;
             t->end_step = (uint32_t)iv;
@@ -162,9 +166,19 @@ bool wn_gametest_load(wn_gametest *t, const char *text, char *err, size_t errlen
                     if (!wn_parser_float(&p, i + 1, &v)) break;
                     if (wn_parser_is(&p, i, "tolerance")) c->tolerance = (int)v;
                     else if (wn_parser_is(&p, i, "maxdiff")) c->maxdiff = v / 100.0f;
+                    else if (wn_parser_is(&p, i, "palette")) c->palette = v != 0.0f;
                     else wn_parser_fail(&p, "unknown capture option");
                 }
                 if (p.error[0]) break;
+            } else if (strcmp(k, "expect_checksum") == 0) {
+                c->kind = WN_GT_CHECKSUM;
+                if (!wn_parser_expect_fields(&p, 4)) break;
+                char *end = NULL;
+                c->checksum = (uint32_t)strtoul(p.fields[3], &end, 16);
+                if (!end || *end) {
+                    wn_parser_fail(&p, "checksum must be hexadecimal");
+                    break;
+                }
             } else if (strcmp(k, "blood") == 0) {
                 c->kind = WN_GT_BLOOD;
                 if (!wn_parser_expect_fields(&p, 7)) break;
@@ -294,6 +308,12 @@ int wn_gametest_run(wn_gametest *t, wn_game *g, uint32_t step, wn_gt_cmd *captur
             }
             break;
         }
+        case WN_GT_CHECKSUM: {
+            uint32_t cs = wn_game_checksum(g);
+            if (cs != c->checksum)
+                wn_gametest_fail(t, "line %d (step %u): checksum %08x, expected %08x", c->line, step, cs, c->checksum);
+            break;
+        }
         case WN_GT_CAPTURE:
             if (ncap < max) captures[ncap++] = *c;
             break;
@@ -330,6 +350,21 @@ wn_image_diff wn_image_compare(const uint8_t *a, const uint8_t *b, int w, int h,
     }
     r.fraction = (w > 0 && h > 0) ? (float)r.differing / (float)(w * h) : 0.0f;
     return r;
+}
+
+bool wn_image_in_palette(const uint8_t *rgba, int w, int h, const uint32_t *colors, int ncolors, int *bad_x, int *bad_y)
+{
+    for (int i = 0; i < w * h; i++) {
+        uint32_t c = ((uint32_t)rgba[i * 4] << 16) | ((uint32_t)rgba[i * 4 + 1] << 8) | rgba[i * 4 + 2];
+        bool found = false;
+        for (int k = 0; k < ncolors && !found; k++) found = colors[k] == c;
+        if (!found) {
+            if (bad_x) *bad_x = i % w;
+            if (bad_y) *bad_y = i / w;
+            return false;
+        }
+    }
+    return true;
 }
 
 bool wn_png_write(const char *path, const uint8_t *rgba, int w, int h)

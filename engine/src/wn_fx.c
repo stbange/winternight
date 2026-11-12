@@ -4,6 +4,17 @@
 
 #include <string.h>
 
+/* Random vector with each component drawn in a fixed order. Never put several
+ * RNG calls into one function call's arguments: C leaves their evaluation
+ * order unspecified (GCC and Clang differ), which breaks determinism. */
+static wn_vec3 rand_v3(wn_rng *r, float x0, float x1, float y0, float y1, float z0, float z1)
+{
+    float x = wn_rng_frange(r, x0, x1);
+    float y = wn_rng_frange(r, y0, y1);
+    float z = wn_rng_frange(r, z0, z1);
+    return wn_v3(x, y, z);
+}
+
 void wn_fx_init(wn_fx *fx, uint64_t seed)
 {
     memset(fx, 0, sizeof *fx);
@@ -16,14 +27,21 @@ void wn_fx_init(wn_fx *fx, uint64_t seed)
     fx->wind = wn_v3(0.35f, 0.0f, 0.15f);
 }
 
+static bool is_cosmetic(wn_particle_type type) { return type == WN_PART_SNOWFLAKE || type == WN_PART_DUST; }
+
 wn_particle *wn_fx_spawn(wn_fx *fx, wn_particle_type type, wn_vec3 pos, wn_vec3 vel, uint32_t color, float life)
 {
-    uint32_t cap = WN_MIN(fx->capacity, (uint32_t)WN_MAX_PARTICLES);
-    if (fx->count >= cap) {
-        /* Cosmetic particles make room; gameplay particles always fit. */
-        if (type == WN_PART_SNOWFLAKE || fx->count >= WN_MAX_PARTICLES) return NULL;
+    wn_particle *p;
+    if (is_cosmetic(type)) {
+        /* Cosmetic particles live in their own pool so they can never change
+         * the order or capacity of gameplay particles (determinism). */
+        uint32_t cap = WN_MIN(fx->capacity, (uint32_t)WN_MAX_COSMETIC);
+        if (fx->ncosmetic >= cap) return NULL;
+        p = &fx->cosmetic[fx->ncosmetic++];
+    } else {
+        if (fx->count >= WN_MAX_PARTICLES) return NULL;
+        p = &fx->p[fx->count++];
     }
-    wn_particle *p = &fx->p[fx->count++];
     p->pos = pos;
     p->vel = vel;
     p->life = life;
@@ -40,7 +58,7 @@ int wn_fx_wound(wn_fx *fx, wn_vec3 pos, wn_vec3 dir, float damage, bool bleeds)
     if (!bleeds) {
         n = (int)(damage * 4.0f) + 2;
         for (int i = 0; i < n; i++) {
-            wn_vec3 v = wn_v3(wn_rng_frange(&fx->rng, -1, 1), wn_rng_frange(&fx->rng, 0.2f, 1.5f), wn_rng_frange(&fx->rng, -1, 1));
+            wn_vec3 v = rand_v3(&fx->rng, -1, 1, 0.2f, 1.5f, -1, 1);
             wn_fx_spawn(fx, WN_PART_BONE_DUST, pos, wn_v3_add(v, wn_v3_scale(dir, 1.5f)), 0xD8CFB4, 1.2f);
         }
         return n;
@@ -51,8 +69,7 @@ int wn_fx_wound(wn_fx *fx, wn_vec3 pos, wn_vec3 dir, float damage, bool bleeds)
     wn_vec3 d = wn_v3_norm(dir);
     for (int i = 0; i < n; i++) {
         float sp = wn_rng_frange(&fx->rng, 1.0f, 2.5f + damage * 0.4f);
-        wn_vec3 jitter = wn_v3(wn_rng_frange(&fx->rng, -0.6f, 0.6f), wn_rng_frange(&fx->rng, -0.2f, 0.8f),
-                               wn_rng_frange(&fx->rng, -0.6f, 0.6f));
+        wn_vec3 jitter = rand_v3(&fx->rng, -0.6f, 0.6f, -0.2f, 0.8f, -0.6f, 0.6f);
         wn_vec3 v = wn_v3_scale(wn_v3_norm(wn_v3_add(d, jitter)), sp);
         uint32_t col = wn_rng_range(&fx->rng, 3) == 0 ? 0xC21E22 : 0x8C1016;
         wn_particle *p = wn_fx_spawn(fx, WN_PART_BLOOD, pos, v, col, 3.0f);
@@ -93,7 +110,7 @@ static void stain_hit(wn_fx *fx, wn_world *w, wn_ivec3 v, int amount)
 void wn_fx_snow_clump(void *fx_user, wn_vec3 pos)
 {
     wn_fx *fx = (wn_fx *)fx_user;
-    wn_vec3 v = wn_v3(wn_rng_frange(&fx->rng, -0.3f, 0.3f), 0.0f, wn_rng_frange(&fx->rng, -0.3f, 0.3f));
+    wn_vec3 v = rand_v3(&fx->rng, -0.3f, 0.3f, 0.0f, 0.0f, -0.3f, 0.3f);
     wn_particle *p = wn_fx_spawn(fx, WN_PART_SNOW_CLUMP, pos, v, 0xC9D6F2, 6.0f);
     if (p) p->size = 2;
 }
@@ -101,8 +118,7 @@ void wn_fx_snow_clump(void *fx_user, wn_vec3 pos)
 void wn_fx_dust(wn_fx *fx, wn_vec3 pos, uint32_t color, int count)
 {
     for (int i = 0; i < count; i++) {
-        wn_vec3 v = wn_v3(wn_rng_frange(&fx->cosmetic_rng, -1.2f, 1.2f), wn_rng_frange(&fx->cosmetic_rng, 0.3f, 2.0f),
-                          wn_rng_frange(&fx->cosmetic_rng, -1.2f, 1.2f));
+        wn_vec3 v = rand_v3(&fx->cosmetic_rng, -1.2f, 1.2f, 0.3f, 2.0f, -1.2f, 1.2f);
         wn_fx_spawn(fx, WN_PART_DUST, pos, v, color, 0.8f);
     }
 }
@@ -212,22 +228,17 @@ static void spawn_snowfall(wn_fx *fx, wn_vec3 viewer, float dt)
     fx->flake_accum += fx->snowfall * dt;
     while (fx->flake_accum >= 1.0f) {
         fx->flake_accum -= 1.0f;
-        wn_vec3 p = wn_v3(viewer.x + wn_rng_frange(&fx->cosmetic_rng, -14.0f, 14.0f),
-                          viewer.y + wn_rng_frange(&fx->cosmetic_rng, 4.0f, 12.0f),
-                          viewer.z + wn_rng_frange(&fx->cosmetic_rng, -14.0f, 14.0f));
+        wn_vec3 p = wn_v3_add(viewer, rand_v3(&fx->cosmetic_rng, -14.0f, 14.0f, 4.0f, 12.0f, -14.0f, 14.0f));
         wn_vec3 v = wn_v3(0.0f, wn_rng_frange(&fx->cosmetic_rng, -1.3f, -0.7f), 0.0f);
         uint32_t col = wn_rng_range(&fx->cosmetic_rng, 4) == 0 ? 0xFFFFFF : 0xC9D6F2;
         if (!wn_fx_spawn(fx, WN_PART_SNOWFLAKE, p, v, col, 14.0f)) break;
     }
 }
 
-void wn_fx_step(wn_fx *fx, wn_world *w, wn_vec3 viewer, float dt)
+static void step_pool(wn_fx *fx, wn_world *w, wn_edit_ctx *e, wn_particle *pool, uint32_t *count, float dt)
 {
-    spawn_snowfall(fx, viewer, dt);
-    wn_edit_ctx e;
-    wn_edit_begin(&e, w);
-    for (uint32_t i = 0; i < fx->count;) {
-        wn_particle *p = &fx->p[i];
+    for (uint32_t i = 0; i < *count;) {
+        wn_particle *p = &pool[i];
         p->life -= dt;
         bool dead = p->life <= 0.0f;
         if (!dead) {
@@ -255,15 +266,24 @@ void wn_fx_step(wn_fx *fx, wn_world *w, wn_vec3 viewer, float dt)
                 p->pos.y <= ((float)v.y + (float)wn_vox_height16(cell) / 16.0f) * WN_VOXEL_SIZE) {
                 dead = true;
                 if (p->type == WN_PART_BLOOD) stain_hit(fx, w, v, p->size > 1 ? 24 : 12);
-                if (p->type == WN_PART_SNOW_CLUMP) wn_snow_add(&e, v.x, v.z, 6);
+                if (p->type == WN_PART_SNOW_CLUMP) wn_snow_add(e, v.x, v.z, 6);
             }
         }
         if (dead) {
-            fx->p[i] = fx->p[--fx->count];
+            pool[i] = pool[--*count];
             continue;
         }
         i++;
     }
+}
+
+void wn_fx_step(wn_fx *fx, wn_world *w, wn_vec3 viewer, float dt)
+{
+    spawn_snowfall(fx, viewer, dt);
+    wn_edit_ctx e;
+    wn_edit_begin(&e, w);
+    step_pool(fx, w, &e, fx->p, &fx->count, dt);
+    step_pool(fx, w, &e, fx->cosmetic, &fx->ncosmetic, dt);
     wn_edit_end(&e);
     stains_step(fx, w, dt);
     pool_step(fx, w, dt);
@@ -276,7 +296,6 @@ uint32_t wn_fx_checksum(const wn_fx *fx)
     wn_hasher_init(&h, 13u);
     for (uint32_t i = 0; i < fx->count; i++) {
         const wn_particle *p = &fx->p[i];
-        if (p->type == WN_PART_SNOWFLAKE || p->type == WN_PART_DUST) continue;
         wn_hasher_add(&h, &p->pos, sizeof p->pos);
         wn_hasher_add(&h, &p->type, 1);
     }

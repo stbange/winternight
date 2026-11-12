@@ -1,0 +1,14 @@
+# spec game-flow: Prologue can be completed / Blocked road (task 9.3, 9.6).
+# The autopilot walks the road; the fallen pine blocks it until it is chopped.
+scene prologue
+seed 1234
+preset mobile
+at 1 autopilot run
+at 1200 expect player.z > 50
+at 1800 expect player.z < 63.5
+at 1801 autopilot run chop 28
+at 2200 expect player.z > 66
+at 2200 capture chopped_log tolerance 24 maxdiff 3
+at 2201 autopilot run
+at 6600 expect complete
+end 6601

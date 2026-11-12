@@ -27,7 +27,8 @@ typedef struct wn_particle {
 
 typedef enum wn_gore_level { WN_GORE_OFF = 0, WN_GORE_REDUCED = 1, WN_GORE_FULL = 2 } wn_gore_level;
 
-#define WN_MAX_PARTICLES 4096
+#define WN_MAX_PARTICLES 4096 /* gameplay particles (blood, clumps, bone dust, splinters) */
+#define WN_MAX_COSMETIC 4096  /* snowflakes and dust: may differ per platform, never affect the game */
 #define WN_MAX_STAINS 2048
 #define WN_MAX_POOL_CELLS 512
 
@@ -42,9 +43,11 @@ typedef struct wn_pool_cell {
 } wn_pool_cell;
 
 typedef struct wn_fx {
-    wn_particle p[WN_MAX_PARTICLES];
+    wn_particle p[WN_MAX_PARTICLES]; /* gameplay: deterministic, part of the checksum */
     uint32_t count;
-    uint32_t capacity;   /* quality preset limit (<= WN_MAX_PARTICLES) */
+    wn_particle cosmetic[WN_MAX_COSMETIC];
+    uint32_t ncosmetic;
+    uint32_t capacity;   /* quality preset limit for cosmetic particles */
     wn_rng rng;          /* simulation stream: blood/clumps affect the world */
     wn_rng cosmetic_rng; /* snowflakes only */
     wn_gore_level gore;

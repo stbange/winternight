@@ -31,6 +31,10 @@ int32_t wn_snow_column_top16(wn_world *w, int32_t x, int32_t z, int32_t y_top)
     return INT32_MIN;
 }
 
+/* Voxel that holds a surface at height h16 (1/16 voxel units). Floor
+ * division: C's '/' truncates towards zero, which is wrong below y = 0. */
+static int32_t surface_voxel(int32_t h16) { return wn_floordiv(h16 - 1, 16); }
+
 static int32_t world_top(const wn_world *w) { return (w->y_max + 1) * WN_CHUNK_SIZE - 1; }
 
 int wn_snow_add(wn_edit_ctx *e, int32_t x, int32_t z, int amount16)
@@ -40,8 +44,7 @@ int wn_snow_add(wn_edit_ctx *e, int32_t x, int32_t z, int amount16)
     if (top == INT32_MIN) return 0;
     int added = 0;
     while (amount16 > 0) {
-        int32_t y = (top - 1) / 16; /* voxel holding the surface */
-        if (top % 16 == 0) y = top / 16 - 1;
+        int32_t y = surface_voxel(top); /* voxel holding the surface */
         wn_voxel v = wn_world_get(w, x, y, z);
         uint32_t m = wn_vox_mat(v);
         int32_t ty;
@@ -73,7 +76,7 @@ int wn_snow_remove(wn_edit_ctx *e, int32_t x, int32_t z, int amount16)
     int32_t top = wn_snow_column_top16(w, x, z, world_top(w));
     int removed = 0;
     while (amount16 > 0 && top != INT32_MIN) {
-        int32_t y = (top % 16 == 0) ? top / 16 - 1 : top / 16;
+        int32_t y = surface_voxel(top);
         wn_voxel v = wn_world_get(w, x, y, z);
         if (wn_vox_mat(v) != WN_MAT_SNOW) break;
         int h = (int)wn_vox_height16(v);
@@ -170,17 +173,17 @@ void wn_snow_footprint(wn_snow *s, wn_edit_ctx *e, wn_vec3 foot, float radius)
             int32_t top = wn_snow_column_top16(w, x, z, c.y + 8);
             if (top == INT32_MIN) continue;
             /* Find the snow base (first non-snow solid). */
-            int32_t y = (top % 16 == 0) ? top / 16 - 1 : top / 16;
+            int32_t y = surface_voxel(top);
             int32_t base = y;
             while (base > c.y - 24 && wn_vox_mat(wn_world_get(w, x, base, z)) == WN_MAT_SNOW) base--;
             if (base == y) continue; /* no snow here */
             int32_t floor16 = (base + 1) * 16 + s->packed16;
             /* Snow at the foot level is pushed down to the packed floor. */
-            int32_t target = WN_MAX(floor16, (int32_t)(foot.y / WN_VOXEL_SIZE * 16.0f) - 2);
+            int32_t target = WN_MAX(floor16, wn_floorf_i(foot.y / WN_VOXEL_SIZE * 16.0f) - 2);
             if (top > target) wn_snow_remove(e, x, z, top - target);
             /* Mark the remaining top as trampled (darker colour). */
             int32_t ny = wn_snow_column_top16(w, x, z, c.y + 8);
-            int32_t ty = (ny % 16 == 0) ? ny / 16 - 1 : ny / 16;
+            int32_t ty = surface_voxel(ny);
             wn_voxel tv = wn_world_get(w, x, ty, z);
             if (wn_vox_mat(tv) == WN_MAT_SNOW && wn_vox_damage(tv) < 6) wn_world_set(w, x, ty, z, wn_vox_set_damage(tv, 6));
         }
@@ -189,11 +192,12 @@ void wn_snow_footprint(wn_snow *s, wn_edit_ctx *e, wn_vec3 foot, float radius)
 float wn_snow_depth_at(wn_world *w, wn_vec3 pos)
 {
     wn_ivec3 v = wn_world_to_voxel(pos);
-    int32_t top = wn_snow_column_top16(w, v.x, v.z, v.y + 2);
+    const int32_t one_metre = (int32_t)(1.0f / WN_VOXEL_SIZE + 0.5f);
+    int32_t top = wn_snow_column_top16(w, v.x, v.z, v.y + one_metre);
     if (top == INT32_MIN) return 0.0f;
-    int32_t y = (top % 16 == 0) ? top / 16 - 1 : top / 16;
+    int32_t y = surface_voxel(top);
     int32_t base = y;
-    while (base > v.y - 40 && wn_vox_mat(wn_world_get(w, v.x, base, v.z)) == WN_MAT_SNOW) base--;
+    while (base > v.y - 4 * one_metre && wn_vox_mat(wn_world_get(w, v.x, base, v.z)) == WN_MAT_SNOW) base--;
     return (float)(top - (base + 1) * 16) / 16.0f * WN_VOXEL_SIZE;
 }
 
@@ -273,7 +277,7 @@ int wn_snow_settle(wn_edit_ctx *e, int32_t x0, int32_t z0, int32_t x1, int32_t z
             for (int32_t x = x0; x <= x1 && moves < max_moves; x++) {
                 int32_t h = wn_snow_column_top16(w, x, z, y_top);
                 if (h == INT32_MIN) continue;
-                int32_t y = (h % 16 == 0) ? h / 16 - 1 : h / 16;
+                int32_t y = surface_voxel(h);
                 if (wn_vox_mat(wn_world_get(w, x, y, z)) != WN_MAT_SNOW) continue;
                 /* Move towards the lowest neighbour first. */
                 int best = -1;

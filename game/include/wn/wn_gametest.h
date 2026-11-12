@@ -17,7 +17,8 @@ typedef enum wn_gt_kind {
     WN_GT_EVENT,
     WN_GT_STREAM,   /* load everything around the player now */
     WN_GT_CAMERA,   /* fixed free camera (x y z yaw pitch) or back to follow */
-    WN_GT_AUTOPILOT /* walk along the road (v0: 0 off, 1 walk, 2 run), v1: chop period in steps */
+    WN_GT_AUTOPILOT, /* walk along the road (v0: 0 off, 1 walk, 2 run), v1: chop period in steps */
+    WN_GT_CHECKSUM   /* exact game checksum (cross-platform determinism) */
 } wn_gt_kind;
 
 typedef enum wn_gt_op { WN_OP_LT, WN_OP_LE, WN_OP_GT, WN_OP_GE, WN_OP_EQ, WN_OP_NE } wn_gt_op;
@@ -31,6 +32,8 @@ typedef struct wn_gt_cmd {
     wn_gt_op op;
     int tolerance;
     float maxdiff; /* fraction of pixels allowed to differ */
+    bool palette;  /* capture: every pixel must be a palette colour */
+    uint32_t checksum; /* expect_checksum */
     int line;
 } wn_gt_cmd;
 
@@ -49,6 +52,8 @@ typedef struct wn_gametest {
     uint32_t prev_down;
     int failures;
     char log[2048];
+    int trace;          /* > 0: print state every N steps (debugging determinism) */
+    bool trace_particles;
     int autopilot;      /* 0 off, 1 walk, 2 run */
     int chop_period;    /* > 0: press attack every N steps */
 } wn_gametest;
@@ -75,6 +80,8 @@ typedef struct wn_image_diff {
 /* Compares two RGBA8 images. diff_out (optional, RGBA8) marks differing pixels red. */
 wn_image_diff wn_image_compare(const uint8_t *a, const uint8_t *b, int w, int h, int tolerance, uint8_t *diff_out);
 bool wn_png_write(const char *path, const uint8_t *rgba, int w, int h);
+/* True if every pixel of an RGBA8 image is one of the palette colours. */
+bool wn_image_in_palette(const uint8_t *rgba, int w, int h, const uint32_t *colors, int ncolors, int *bad_x, int *bad_y);
 /* Loads an RGBA8 PNG (caller frees). */
 uint8_t *wn_png_read(const char *path, int *w, int *h);
 

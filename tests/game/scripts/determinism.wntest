@@ -1,0 +1,10 @@
+# spec platform-targets: Same replay, same result everywhere. The checksums
+# below must be identical on Linux, Windows and the web build (task 11.1).
+scene prologue
+seed 1234
+preset mobile
+at 1 autopilot run
+at 300 autopilot run chop 40
+at 600 expect_checksum 6fc0c750
+at 900 expect_checksum 7825d4b3
+end 901

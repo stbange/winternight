@@ -10,3 +10,4 @@ test-results/
 playwright-report/
 .DS_Store
 .vscode/
+tests/web/node_modules/

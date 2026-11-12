@@ -552,14 +552,16 @@ static wn_mat4 shadow_matrix(const wn_frame_desc *f, float extent, int size)
 static void draw_particles(wn_renderer *r, const wn_frame_desc *f, wn_mat4 viewproj, wn_render_stats *st)
 {
     const wn_fx *fx = f->fx;
-    if (!fx || fx->count == 0) return;
+    if (!fx) return;
+    uint32_t total = fx->count + fx->ncosmetic;
+    if (total == 0) return;
     typedef struct pv {
         float x, y, z;
         uint8_t c[4];
         float size;
     } pv;
-    if ((int)fx->count > r->part_cap) {
-        r->part_cap = (int)fx->count * 2;
+    if ((int)total > r->part_cap) {
+        r->part_cap = (int)total * 2;
         glBindVertexArray(r->part_vao);
         glBindBuffer(GL_ARRAY_BUFFER, r->part_vbo);
         glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(r->part_cap * (int)sizeof(pv)), NULL, GL_STREAM_DRAW);
@@ -570,10 +572,10 @@ static void draw_particles(wn_renderer *r, const wn_frame_desc *f, wn_mat4 viewp
         glEnableVertexAttribArray(2);
         glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(pv), (void *)16);
     }
-    pv *buf = (pv *)malloc(fx->count * sizeof(pv));
+    pv *buf = (pv *)malloc(total * sizeof(pv));
     float scale = (float)r->ih / 270.0f;
-    for (uint32_t i = 0; i < fx->count; i++) {
-        const wn_particle *p = &fx->p[i];
+    for (uint32_t i = 0; i < total; i++) {
+        const wn_particle *p = i < fx->count ? &fx->p[i] : &fx->cosmetic[i - fx->count];
         buf[i].x = p->pos.x;
         buf[i].y = p->pos.y;
         buf[i].z = p->pos.z;
@@ -585,7 +587,7 @@ static void draw_particles(wn_renderer *r, const wn_frame_desc *f, wn_mat4 viewp
     }
     glBindVertexArray(r->part_vao);
     glBindBuffer(GL_ARRAY_BUFFER, r->part_vbo);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(fx->count * sizeof(pv)), buf, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(total * sizeof(pv)), buf, GL_STREAM_DRAW);
     free(buf);
     glUseProgram(r->p_particle);
     glUniformMatrix4fv(glGetUniformLocation(r->p_particle, "u_viewproj"), 1, GL_FALSE, viewproj.m);
@@ -595,7 +597,7 @@ static void draw_particles(wn_renderer *r, const wn_frame_desc *f, wn_mat4 viewp
     glUniform3f(glGetUniformLocation(r->p_particle, "u_fog_col"), fog.x, fog.y, fog.z);
     wn_vec3 light = wn_v3_add(wn_v3_scale(wn_rgb_to_vec(f->atmos->moon_color), 0.8f), wn_v3(0.15f, 0.15f, 0.2f));
     glUniform3f(glGetUniformLocation(r->p_particle, "u_light"), light.x, light.y, light.z);
-    glDrawArrays(GL_POINTS, 0, (GLsizei)fx->count);
+    glDrawArrays(GL_POINTS, 0, (GLsizei)total);
     st->draw_calls++;
 }
 

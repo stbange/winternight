@@ -3,7 +3,6 @@ project(winternight VERSION 0.1.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(WN_BUILD_GAME "Build the game executable (needs SDL3)" ON)
@@ -43,6 +42,7 @@ add_library(wn_core STATIC ${WN_ENGINE_SOURCES} ${WN_GAME_SOURCES})
 target_include_directories(wn_core PUBLIC engine/include game/include
                                        PRIVATE third_party/xxhash third_party/stb)
 target_compile_definitions(wn_core PUBLIC WN_VOXEL_SIZE=${WN_VOXEL_SIZE})
+set_target_properties(wn_core PROPERTIES C_EXTENSIONS OFF) # strict ISO C11 for the portable core
 target_compile_options(wn_core PRIVATE ${WN_WARN})
 if(NOT MSVC)
   target_link_libraries(wn_core PUBLIC m)
@@ -54,8 +54,8 @@ endif()
 
 # ---------------------------------------------------------------- game
 if(WN_BUILD_GAME)
-  if(EMSCRIPTEN)
-    set(WN_SDL_TARGET "")
+  if(EMSCRIPTEN AND NOT WN_SDL3_SOURCE_DIR)
+    set(WN_SDL_TARGET "")  # Emscripten's SDL3 port (--use-port=sdl3)
   elseif(WN_SDL3_SOURCE_DIR)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
@@ -78,25 +78,32 @@ if(WN_BUILD_GAME)
   file(GLOB WN_PLATFORM_SOURCES CONFIGURE_DEPENDS
        ${CMAKE_SOURCE_DIR}/platform/sdl/*.c ${CMAKE_SOURCE_DIR}/platform/gl/*.c)
   add_executable(winternight ${WN_PLATFORM_SOURCES})
+  # Platform glue may use compiler extensions (EM_JS on the web).
+  set_target_properties(winternight PROPERTIES C_EXTENSIONS ON)
   target_include_directories(winternight PRIVATE platform third_party/stb)
   target_compile_options(winternight PRIVATE ${WN_WARN})
   target_link_libraries(winternight PRIVATE wn_core ${WN_SDL_TARGET})
-  target_compile_definitions(winternight PRIVATE WN_DATA_DIR="${CMAKE_SOURCE_DIR}/game/data")
+  if(NOT EMSCRIPTEN)
+    target_compile_definitions(winternight PRIVATE WN_DATA_DIR="${CMAKE_SOURCE_DIR}/game/data")
+  endif()
 
   if(EMSCRIPTEN)
-    set_target_properties(winternight PROPERTIES SUFFIX ".js" OUTPUT_NAME "winternight")
-    target_compile_options(winternight PRIVATE --use-port=sdl3)
     target_compile_definitions(winternight PRIVATE WN_DATA_DIR="/data")
+    if(NOT WN_SDL3_SOURCE_DIR)
+      target_compile_options(winternight PRIVATE --use-port=sdl3)
+      target_link_options(winternight PRIVATE --use-port=sdl3)
+    endif()
     target_link_options(winternight PRIVATE
-      --use-port=sdl3
       -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2
       -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=384MB -sINITIAL_MEMORY=96MB
       -sEXPORTED_FUNCTIONS=_main,_wn_web_status,_wn_xr_session_started,_wn_xr_session_ended,_wn_xr_frame,_malloc,_free
       -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPF32,UTF8ToString
-      --js-library ${CMAKE_SOURCE_DIR}/platform/web/wn_web.js
-      --preload-file ${CMAKE_SOURCE_DIR}/game/data@/data
-      --shell-file ${CMAKE_SOURCE_DIR}/platform/web/shell.html
-      -o winternight.html)
+      "SHELL:--js-library ${CMAKE_SOURCE_DIR}/platform/web/wn_web.js"
+      "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/game/data@/data"
+      "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/tests/game/scripts@/tests"
+      -sEXIT_RUNTIME=0
+      "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/platform/web/shell.html"
+      )
     set_target_properties(winternight PROPERTIES SUFFIX ".html")
   endif()
 endif()
@@ -114,8 +121,10 @@ if(WN_BUILD_TESTS AND NOT EMSCRIPTEN)
     target_link_libraries(${name} PRIVATE wn_core unity)
     target_include_directories(${name} PRIVATE tests/unit third_party/stb)
     target_compile_definitions(${name} PRIVATE WN_DATA_DIR="${CMAKE_SOURCE_DIR}/game/data"
-                                               WN_TEST_DIR="${CMAKE_SOURCE_DIR}/tests")
+                                               WN_TEST_DIR="${CMAKE_SOURCE_DIR}/tests"
+                                               WN_TEST_TMP="${CMAKE_BINARY_DIR}")
     target_compile_options(${name} PRIVATE ${WN_WARN})
+    set_target_properties(${name} PROPERTIES C_EXTENSIONS OFF)
     add_test(NAME ${name} COMMAND ${name})
   endforeach()
 endif()
