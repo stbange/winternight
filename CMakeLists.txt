@@ -15,7 +15,8 @@ set(WN_SDL3_SOURCE_DIR "" CACHE PATH "Local SDL3 source tree (otherwise fetched 
 
 # ---------------------------------------------------------------- warnings
 if(MSVC)
-  set(WN_WARN /W4 /wd4100 /wd4201 /wd4996 /wd4244 /wd4267 /wd4305)
+  # /W3 with conversions silenced (float maths) and unsigned negation allowed (PCG32).
+  set(WN_WARN /W3 /wd4244 /wd4267 /wd4305 /wd4996 /wd4146 /wd4018)
   if(WN_WERROR)
     list(APPEND WN_WARN /WX)
   endif()
@@ -50,6 +51,15 @@ endif()
 if(WN_COVERAGE AND NOT MSVC)
   target_compile_options(wn_core PRIVATE --coverage -O0 -g)
   target_link_options(wn_core PUBLIC --coverage)
+endif()
+
+# ---------------------------------------------------------------- tools
+if(NOT EMSCRIPTEN)
+  # GPU-free simulation runner for determinism checks (any CI machine).
+  add_executable(wn_simtest tools/wn_simtest.c)
+  target_link_libraries(wn_simtest PRIVATE wn_core)
+  target_compile_options(wn_simtest PRIVATE ${WN_WARN})
+  target_compile_definitions(wn_simtest PRIVATE WN_DATA_DIR="${CMAKE_SOURCE_DIR}/game/data")
 endif()
 
 # ---------------------------------------------------------------- game
@@ -126,5 +136,11 @@ if(WN_BUILD_TESTS AND NOT EMSCRIPTEN)
     target_compile_options(${name} PRIVATE ${WN_WARN})
     set_target_properties(${name} PROPERTIES C_EXTENSIONS OFF)
     add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
   endforeach()
+endif()
+
+# Determinism check through the GPU-free runner (same checksums on every target).
+if(WN_BUILD_TESTS AND NOT EMSCRIPTEN)
+  add_test(NAME sim_determinism COMMAND wn_simtest ${CMAKE_SOURCE_DIR}/tests/game/scripts/determinism.wntest)
 endif()

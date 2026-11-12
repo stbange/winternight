@@ -42,14 +42,20 @@ wn_quality wn_quality_preset(wn_preset_id id)
         q.res_index = 1;
         q.view_radius = 5;
         q.shadow_size = 512;
+        q.shadow_radius = 1;
+        q.lod_near = 0;
+        q.lod_mid = 2;
         q.particles = 2000;
         q.glow_divisor = 4;
-        q.lod_shift = 4;
+        q.lod_shift = 5;
         break;
     case WN_PRESET_STANDARD:
         q.res_index = 1;
         q.view_radius = 7;
         q.shadow_size = 1024;
+        q.shadow_radius = 3;
+        q.lod_near = 1;
+        q.lod_mid = 3;
         q.particles = 3000;
         q.glow_divisor = 4;
         q.lod_shift = 4;
@@ -59,6 +65,9 @@ wn_quality wn_quality_preset(wn_preset_id id)
         q.res_index = 2;
         q.view_radius = 10;
         q.shadow_size = 2048;
+        q.shadow_radius = 5;
+        q.lod_near = 2;
+        q.lod_mid = 5;
         q.particles = 4096;
         q.glow_divisor = 2;
         q.lod_shift = 3;

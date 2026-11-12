@@ -35,6 +35,9 @@ typedef struct wn_quality {
     int res_index;      /* into wn_internal_res */
     int view_radius;    /* chunk columns */
     int shadow_size;    /* shadow map edge */
+    int shadow_radius;  /* chunk rings that cast moon shadows (design D14) */
+    int lod_near;       /* chunk rings meshed at full detail */
+    int lod_mid;        /* rings at half detail; beyond: quarter detail */
     uint32_t particles; /* particle cap */
     int glow_divisor;   /* glow buffer = internal / divisor, 0 = off */
     int lod_shift;      /* far scenery cell = 2^shift voxels */

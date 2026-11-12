@@ -114,6 +114,8 @@ static void apply_quality(app *a)
 {
     a->game.view_radius = a->quality.view_radius;
     a->game.fx.capacity = a->quality.particles;
+    a->view.lod_near = a->quality.lod_near;
+    a->view.lod_mid = a->quality.lod_mid;
 }
 
 static void draw_overlay(app *a)
@@ -649,6 +651,7 @@ int main(int argc, char **argv)
     wn_input_init(&a->input);
     wn_touch_init(&a->touch, (float)sw / (float)WN_MAX(sh, 1), a->coarse);
     wn_view_init(&a->view);
+    apply_quality(a);
     wn_overlay_init(&a->overlay, wn_internal_res[a->quality.res_index].w, wn_internal_res[a->quality.res_index].h);
     wn_stats_reset(&a->stats);
     wn_scene_build_far(&a->game.scene, a->quality.lod_shift, &a->far);

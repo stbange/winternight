@@ -1,0 +1,129 @@
+# Winternight CI (spec quality-gates). Runs on every push and pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SDL_DEPS: >-
+    libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev
+    libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libegl-dev libgl-dev libgles-dev
+    libdrm-dev libgbm-dev
+
+jobs:
+  specs:
+    name: OpenSpec validation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx --yes @fission-ai/openspec@1.17.0 validate --strict --all
+
+  linux:
+    name: Linux - unit tests, coverage, game tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build xvfb mesa-utils libgl1-mesa-dri $SDL_DEPS
+          pip install gcovr==8.8
+      - name: Unit tests with coverage (10 cm voxels)
+        run: |
+          cmake -S . -B build/cov -G Ninja -DCMAKE_BUILD_TYPE=Debug -DWN_COVERAGE=ON -DWN_BUILD_GAME=OFF
+          cmake --build build/cov
+          ctest --test-dir build/cov --output-on-failure
+      - name: Coverage gate (>= 95% lines of the core)
+        run: >
+          gcovr -r . build/cov --filter 'engine/' --filter 'game/' --exclude-unreachable-branches
+          --fail-under-line 95 --print-summary --html-details coverage/index.html
+      - name: Unit tests at 5 cm voxels (voxel size stays configurable, design D15)
+        run: |
+          cmake -S . -B build/vox05 -G Ninja -DCMAKE_BUILD_TYPE=Release -DWN_VOXEL_SIZE=0.05f -DWN_BUILD_GAME=OFF
+          cmake --build build/vox05
+          ctest --test-dir build/vox05 --output-on-failure -E sim_determinism
+      - name: Build the game
+        run: |
+          cmake -S . -B build/game -G Ninja -DCMAKE_BUILD_TYPE=Release -DWN_BUILD_TESTS=OFF
+          cmake --build build/game
+      - name: Automated game tests (headless, Mesa llvmpipe)
+        run: |
+          mkdir -p build/test-output
+          for script in tests/game/scripts/*.wntest; do
+            case "$script" in *trace.wntest) continue;; esac
+            echo "::group::$script"
+            xvfb-run -a -s "-screen 0 1280x720x24" build/game/winternight --test "$script" \
+              --golden tests/game/golden --out build/test-output
+            echo "::endgroup::"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-test-output
+          path: |
+            coverage/
+            build/test-output/
+
+  sanitizers:
+    name: Linux - ASan/UBSan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - run: |
+          cmake -S . -B build/asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DWN_SANITIZE=ON -DWN_BUILD_GAME=OFF
+          cmake --build build/asan
+          ctest --test-dir build/asan --output-on-failure
+
+  windows:
+    name: Windows - MSVC
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Unit tests and determinism (same checksums as Linux and web)
+        run: ctest --test-dir build -C Release --output-on-failure
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winternight-windows
+          path: |
+            build/Release/winternight.exe
+            game/data/
+
+  web:
+    name: Web - Emscripten, browser tests (touch, WebXR)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 7.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        run: |
+          emcmake cmake -S . -B build/web -DCMAKE_BUILD_TYPE=Release -DWN_BUILD_TESTS=OFF
+          cmake --build build/web
+      - name: Browser tests
+        working-directory: tests/web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winternight-web
+          path: build/web/winternight.*

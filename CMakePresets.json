@@ -1,0 +1,34 @@
+{
+  "version": 6,
+  "configurePresets": [
+    { "name": "base", "hidden": true, "binaryDir": "${sourceDir}/build/${presetName}", "generator": "Ninja" },
+    { "name": "linux-debug", "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "linux-release", "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
+    { "name": "linux-coverage", "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "WN_COVERAGE": "ON", "WN_BUILD_GAME": "OFF" } },
+    { "name": "linux-asan", "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "WN_SANITIZE": "ON", "WN_BUILD_GAME": "OFF" } },
+    { "name": "voxel-5cm", "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "WN_VOXEL_SIZE": "0.05f", "WN_BUILD_GAME": "OFF" } },
+    { "name": "windows-msvc", "binaryDir": "${sourceDir}/build/${presetName}", "generator": "Visual Studio 17 2022",
+      "architecture": "x64" },
+    { "name": "web-release", "inherits": "base",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "WN_BUILD_TESTS": "OFF" } },
+    { "name": "web-debug", "inherits": "web-release", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } }
+  ],
+  "buildPresets": [
+    { "name": "linux-debug", "configurePreset": "linux-debug" },
+    { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "linux-coverage", "configurePreset": "linux-coverage" },
+    { "name": "linux-asan", "configurePreset": "linux-asan" },
+    { "name": "voxel-5cm", "configurePreset": "voxel-5cm" },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "configuration": "Release" },
+    { "name": "web-release", "configurePreset": "web-release" }
+  ],
+  "testPresets": [
+    { "name": "linux-coverage", "configurePreset": "linux-coverage", "output": { "outputOnFailure": true } },
+    { "name": "linux-asan", "configurePreset": "linux-asan", "output": { "outputOnFailure": true } },
+    { "name": "voxel-5cm", "configurePreset": "voxel-5cm", "output": { "outputOnFailure": true } }
+  ]
+}

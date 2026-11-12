@@ -479,14 +479,17 @@ static void set_model(draw_ctx *d, wn_mat4 m, wn_ivec3 hash)
     if (!d->shadow_pass) glUniform3i(d->r->vox.hash_origin, hash.x, hash.y, hash.z);
 }
 
-static void draw_world(draw_ctx *d, const wn_frustum *fr)
+static void draw_world(draw_ctx *d, const wn_frustum *fr, int max_ring)
 {
     wn_renderer *r = d->r;
     const wn_frame_desc *f = d->f;
     wn_view *v = f->view_cache;
+    wn_ivec3 pv = wn_world_to_voxel(f->viewer);
+    int pcx = pv.x >> WN_CHUNK_BITS, pcz = pv.z >> WN_CHUNK_BITS;
     for (uint32_t i = 0; i < v->cap; i++) {
         wn_view_column *c = &v->cols[i];
         if (!c->used || !c->gpu || c->lod < 0) continue;
+        if (max_ring >= 0 && WN_MAX(abs(c->cx - pcx), abs(c->cz - pcz)) > max_ring) continue;
         wn_vec3 mn, mx;
         wn_view_column_bounds(f->world, c->cx, c->cz, &mn, &mx);
         if (fr && !wn_frustum_box(fr, mn, mx)) continue;
@@ -625,7 +628,7 @@ void wn_renderer_draw(wn_renderer *r, const wn_frame_desc *f, wn_render_stats *s
 
     /* 1. Moon shadow map. */
     bool shadows = q->shadow_size > 0 && !getenv("WN_DEBUG_NO_SHADOWS");
-    float extent = (float)(f->radius + 1) * WN_CHUNK_SIZE * WN_VOXEL_SIZE;
+    float extent = (float)(q->shadow_radius + 1) * WN_CHUNK_SIZE * WN_VOXEL_SIZE;
     wn_mat4 shadow_vp = shadow_matrix(f, extent, q->shadow_size ? q->shadow_size : 512);
     if (shadows) {
         ensure_shadow(r, q->shadow_size);
@@ -642,8 +645,9 @@ void wn_renderer_draw(wn_renderer *r, const wn_frame_desc *f, wn_render_stats *s
         draw_ctx sd = d;
         sd.shadow_pass = true;
         sd.model_loc = r->sh_model;
-        draw_world(&sd, NULL);
+        draw_world(&sd, NULL, q->shadow_radius);
         draw_models(&sd);
+        if (getenv("WN_DEBUG_STATS")) fprintf(stderr, "stats after shadow: dc %u tri %u\n", st->draw_calls, st->triangles);
     }
     /* Shadow lookup matrix: clip space of the shadow map. */
     wn_mat4 shadow_lookup = shadow_vp;
@@ -686,8 +690,9 @@ void wn_renderer_draw(wn_renderer *r, const wn_frame_desc *f, wn_render_stats *s
     glCullFace(GL_BACK);
     set_common_uniforms(r, f, viewproj, shadow_lookup, shadows);
     wn_frustum fr = wn_frustum_from_matrix(viewproj);
-    draw_world(&d, &fr);
+    draw_world(&d, &fr, -1);
     /* Far scenery outside the loaded square. */
+    if (getenv("WN_DEBUG_STATS")) fprintf(stderr, "stats after shadow+world: dc %u tri %u\n", st->draw_calls, st->triangles);
     if (r->far_mesh.count) {
         float s = WN_CHUNK_SIZE * WN_VOXEL_SIZE;
         wn_ivec3 pv = wn_world_to_voxel(f->viewer);
@@ -702,6 +707,7 @@ void wn_renderer_draw(wn_renderer *r, const wn_frame_desc *f, wn_render_stats *s
         draw_mesh(&r->far_mesh, st);
         glUniform1f(r->vox.cut_on, 0.0f);
     }
+    if (getenv("WN_DEBUG_STATS")) fprintf(stderr, "stats after far: dc %u tri %u (far %d)\n", st->draw_calls, st->triangles, (int)r->far_mesh.count / 3);
     glDisable(GL_CULL_FACE); /* models are thin and mirrored by rotation */
     glUniform1f(r->vox.rim, 1.0f); /* characters get a moonlit rim so they read at night */
     draw_models(&d);

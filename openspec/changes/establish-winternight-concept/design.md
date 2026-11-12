@@ -253,6 +253,49 @@ The voxel size stays at 10 cm until the user has seen the first playable version
 metres rather than voxels, prefabs stored as voxel models with their own scale that
 are resampled when loaded, and unit tests run at two voxel sizes in CI.
 
+### D16. Implementation notes (milestone 1)
+Decisions taken while building the first playable version. They refine D1–D15;
+where they differ, this section wins.
+- **Colour variation in the shader.** The vertex carries a 16-bit *surface word*
+  (material, damage, stain) instead of a baked colour. The fragment shader picks
+  the ramp colour with the same integer hash as the CPU (`wn_voxel_color`), so
+  equal surfaces still merge into large greedy quads. Baking per-voxel colours had
+  blocked merging (5 million triangles in view).
+- **Partial tops are merged.** Snow tops of equal fill height merge greedily.
+  Generated snow uses quarter-voxel steps, and low risers are shaded like the top
+  surface (`SOFT_STEP`) so gentle slopes do not stripe.
+- **Distance level of detail for chunks.** Each column is meshed at full, half or
+  quarter detail by its ring distance (`wn_view`). The rings belong to the quality
+  preset (Mobile: full detail only in the player's column). All chunks of a column
+  are combined into one mesh, which means one draw call per column, with frustum
+  culling per column.
+- **Far scenery.** Beyond the streamed square, a coarse grid of the whole scene
+  (1.6 m cells, 3.2 m on Mobile) is drawn. The shader discards it inside the
+  streamed square, and fog turns it into a silhouette. Emissive windows fog
+  three times less, so the castle reads from far away.
+- **Sky light decays faster.** Sky light spreads sideways with a decay of 3 per
+  voxel (`wn_world.sky_decay`). At 10 cm voxels a decay of 1 floods whole forests
+  with flood-fill work. Moonlight has its own shadow map, so this only affects
+  ambient light under cover. Block light (fire) keeps a decay of 1.
+- **Streaming is budgeted per chunk**, nearest columns first. Lighting runs when a
+  column is complete. Players cannot walk into a column that is not loaded yet.
+- **Meshing runs on the main thread** within a time budget (3 ms on Mobile). The
+  job system with worker threads (D3) is deferred until profiling on the reference
+  phones shows it is needed.
+- **Determinism.** Cosmetic particles (snowflakes, dust) live in their own pool and
+  RNG stream and are excluded from the checksum. Never draw several random
+  numbers inside one function call's argument list: GCC and Clang evaluate
+  arguments in different orders. Surface heights use floor division, because C
+  division truncates towards zero below y = 0. Native and web traces are
+  bit-identical over the test runs.
+- **Headless tests use Xvfb with Mesa llvmpipe** (GLX), not EGL surfaceless. The
+  GPU-free runner `wn_simtest` checks the determinism checksums on machines
+  without OpenGL (Windows CI).
+- **Math.** A small own math header (`wn_base.h`) replaces cglm: polynomial
+  `wn_sinf`/`wn_cosf`/`wn_atan2f` keep the simulation independent of libm.
+- **Chopping** is a diagonal stroke plus vertical strokes in front of the body,
+  4.5 damage each: wood breaks in one hit, frozen earth needs two.
+
 ## Risks / Trade-offs
 
 - [llvmpipe images differ between Mesa versions] → Pin the CI image, use tolerances,
@@ -280,3 +323,5 @@ Not applicable (greenfield project).
 
 - Voxel size (world and characters): decided with the user after the first playable
   version (D15, task 9.5). The engine keeps it configurable until then.
+- Worker-thread meshing and lighting (D3): needed on the reference phones or not?
+  Decide after measuring on real devices (task 11.2).

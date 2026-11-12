@@ -44,11 +44,15 @@ When the retro palette option is on, the final image SHALL be mapped to the 64-c
 - **THEN** every pixel of the internal image is one of the 64 palette colours
 
 ### Requirement: Distance fog
-The renderer SHALL apply exponential fog toward a scene-defined colour so that geometry at the edge of the loaded radius is fully fogged.
+The renderer SHALL apply exponential fog toward a scene-defined colour so that the edge of the rendered world (the far-scenery limit beyond the streamed chunks) is fully fogged, while emissive surfaces such as lit windows fog less so they remain visible from afar.
 
 #### Scenario: No visible world edge
-- **WHEN** the camera looks toward the edge of the loaded chunk radius
-- **THEN** pixels at the streaming boundary equal the fog colour
+- **WHEN** the camera looks toward the edge of the far scenery
+- **THEN** pixels at that edge equal the fog colour
+
+#### Scenario: Windows shine through the fog
+- **WHEN** lit castle windows and stone walls are at the same distance in fog
+- **THEN** the window pixels are brighter than the stone pixels
 
 ### Requirement: Optional vertex snapping
 The renderer SHALL offer a retro vertex-snapping option that rounds projected vertices to the internal pixel grid, and it SHALL always be disabled in XR sessions.
